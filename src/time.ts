@@ -1,0 +1,118 @@
+export const STEP = 15 * 60_000;
+export type Place = { zone: string; start: number; end: number };
+export type Plan = { date: string; places: Place[]; duration: number; index: number; weekdays: boolean };
+const cache = new Map<string, Intl.DateTimeFormat>();
+
+/** Read wall-clock fields for a UTC instant using the browser's IANA rules. */
+export function localParts(instant: number, zone: string) {
+  let formatter = cache.get(zone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
+    });
+    cache.set(zone, formatter);
+  }
+  const parts = Object.fromEntries(formatter.formatToParts(instant).map(p => [p.type, p.value]));
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minute: Number(parts.hour) * 60 + Number(parts.minute),
+    time: `${parts.hour}:${parts.minute}`,
+    weekday: parts.weekday,
+  };
+}
+
+export function validDate(date: string): boolean {
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(date)) return false;
+  const value = Date.parse(`${date}T00:00:00Z`);
+  return Number.isFinite(value) && new Date(value).toISOString().slice(0, 10) === date;
+}
+
+/** A reference city's calendar day can contain 23, 24 or 25 actual hours. */
+export function daySlots(date: string, zone: string): number[] {
+  if (!validDate(date)) return [];
+  const midnightUTC = Date.parse(`${date}T00:00:00Z`);
+  const result: number[] = [];
+  for (let t = midnightUTC - 14 * 3_600_000; t < midnightUTC + 38 * 3_600_000; t += STEP) {
+    if (localParts(t, zone).date === date) result.push(t);
+  }
+  return result;
+}
+
+export function available(instant: number, place: Place, weekdays = false): boolean {
+  const local = localParts(instant, place.zone);
+  // An overnight window belongs to the day on which it starts.
+  const overnight = place.start > place.end;
+  const ownerDay = overnight && local.minute < place.end
+    ? new Date(Date.parse(`${local.date}T12:00:00Z`) - 86_400_000).getUTCDay()
+    : new Date(`${local.date}T12:00:00Z`).getUTCDay();
+  if (weekdays && (ownerDay === 0 || ownerDay === 6)) return false;
+  if (place.start === place.end) return true;
+  return overnight ? local.minute >= place.start || local.minute < place.end
+    : local.minute >= place.start && local.minute < place.end;
+}
+
+export function meetingFits(instant: number, place: Place, duration: number, weekdays = false): boolean {
+  for (let offset = 0; offset < duration; offset += 15) {
+    if (!available(instant + offset * 60_000, place, weekdays)) return false;
+  }
+  return true;
+}
+
+export function matchingSlots(slots: number[], plan: Plan): number[] {
+  return slots.filter(t => plan.places.every(p => meetingFits(t, p, plan.duration, plan.weekdays)));
+}
+
+/** Keep recommendations an hour apart, preferring each window's midpoint. */
+export function recommend(matches: number[], places: Place[]): number[] {
+  const score = (t: number) => places.reduce((total, p) => {
+    const length = (p.end - p.start + 1440) % 1440 || 1440;
+    const middle = (p.start + length / 2) % 1440;
+    const distance = Math.abs(localParts(t, p.zone).minute - middle);
+    return total + Math.min(distance, 1440 - distance);
+  }, 0);
+  const sorted = [...matches].sort((a, b) => score(a) - score(b) || a - b);
+  const result: number[] = [];
+  for (const t of sorted) {
+    if (result.every(other => Math.abs(other - t) >= 3_600_000)) result.push(t);
+    if (result.length === 3) break;
+  }
+  return result;
+}
+
+export function city(zone: string): string {
+  return zone.split('/').at(-1)!.replaceAll('_', ' ');
+}
+
+export function utcOffset(instant: number, zone: string): string {
+  return new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'shortOffset' })
+    .formatToParts(instant).find(p => p.type === 'timeZoneName')!.value.replace('GMT', 'UTC');
+}
+
+export function parsePlan(raw: string): Plan | null {
+  try {
+    if (raw.length > 5000) return null;
+    const p = JSON.parse(raw) as Plan;
+    if (!p || !validDate(p.date) || ![15, 30, 45, 60, 90, 120].includes(p.duration)
+      || !Number.isInteger(p.index) || p.index < 0 || p.index > 103 || typeof p.weekdays !== 'boolean'
+      || !Array.isArray(p.places) || p.places.length < 1 || p.places.length > 6) return null;
+    const zones = new Set<string>();
+    for (const place of p.places) {
+      if (!place || typeof place.zone !== 'string' || place.zone.length > 80 || zones.has(place.zone)) return null;
+      for (const v of [place.start, place.end]) if (!Number.isInteger(v) || v < 0 || v >= 1440 || v % 15 !== 0) return null;
+      new Intl.DateTimeFormat('en', { timeZone: place.zone }).format();
+      zones.add(place.zone);
+    }
+    if (daySlots(p.date, p.places[0].zone).length === 0) return null;
+    return { date: p.date, duration: p.duration, index: p.index, weekdays: p.weekdays,
+      places: p.places.map(({ zone, start, end }) => ({ zone, start, end })) };
+  } catch { return null; }
+}
+
+export function calendarFile(start: number, duration: number, uid: string, now = Date.now()): string {
+  const stamp = (t: number) => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Overlap//Meeting Planner//EN', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT', `UID:${uid.replace(/[^a-zA-Z0-9-]/g, '')}@overlap.local`, `DTSTAMP:${stamp(now)}`,
+    `DTSTART:${stamp(start)}`, `DTEND:${stamp(start + duration * 60_000)}`,
+    'SUMMARY:Overlap meeting', 'DESCRIPTION:Time planned with Overlap.', 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+}
