@@ -152,6 +152,13 @@ export function parsePlan(raw: string): Plan | null {
   } catch { return null; }
 }
 
+/** Reopen local preferences on today's date without reusing a DST-dependent index. */
+export function restoreSavedPlan(raw: string, now = Date.now()): Plan | null {
+  const stored = parsePlan(raw);
+  if (!stored) return null;
+  return movePlanDate(stored, localParts(now, stored.places[0].zone).date)?.plan ?? null;
+}
+
 export function calendarFile(start: number, duration: number, uid: string, now = Date.now()): string {
   const stamp = (t: number) => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Overlap//Meeting Planner//EN', 'CALSCALE:GREGORIAN',

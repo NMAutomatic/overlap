@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, STEP, utcOffset } from './time';
+import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, STEP, utcOffset } from './time';
 import type { Place, Plan } from './time';
 const toronto: Place = { zone: 'America/Toronto', start: 540, end: 1020 };
 const base: Plan = { date: '2026-09-14', places: [toronto], duration: 60, index: 0, weekdays: false };
@@ -137,6 +137,36 @@ describe('availability', () => {
     expect(picks.every(t => matches.includes(t))).toBe(true);
     const impossible = { ...base, places: [toronto, { zone: 'Asia/Tokyo', start: 540, end: 1020 }] };
     expect(matchingSlots(slots, impossible)).toHaveLength(0);
+  });
+});
+
+describe('restoring local preferences', () => {
+  const time = (plan: Plan) => localParts(daySlots(plan.date, plan.places[0].zone)[plan.index], plan.places[0].zone).time;
+  it.each([
+    ['2026-03-08', 40], // 11:00 on a 23-hour day
+    ['2026-11-01', 48], // 11:00 on a 25-hour day
+  ])('keeps the clock time when reopening a saved %s plan on a normal day', (date, index) => {
+    const saved = { ...base, date, index, weekdays: true, duration: 90 };
+    const restored = restoreSavedPlan(JSON.stringify(saved), Date.parse('2026-09-21T12:00:00Z'))!;
+    expect(restored.date).toBe('2026-09-21');
+    expect(time(restored)).toBe('11:00');
+    expect(restored.duration).toBe(90);
+    expect(restored.weekdays).toBe(true);
+    expect(restored.places).toEqual(saved.places);
+  });
+  it('uses today in the base city, even when its calendar date differs from UTC', () => {
+    const restored = restoreSavedPlan(JSON.stringify(base), Date.parse('2026-09-21T02:00:00Z'))!;
+    expect(restored.date).toBe('2026-09-20');
+  });
+  it('moves a nonexistent saved clock time forward when today has a DST gap', () => {
+    const saved = { ...base, date: '2026-03-07', index: 10 };
+    const restored = restoreSavedPlan(JSON.stringify(saved), Date.parse('2026-03-08T12:00:00Z'))!;
+    expect(time(restored)).toBe('03:00');
+  });
+  it('leaves shared plans on their explicit date and rejects malformed saved state', () => {
+    expect(parsePlan(JSON.stringify(base))?.date).toBe(base.date);
+    expect(restoreSavedPlan('not json')).toBeNull();
+    expect(restoreSavedPlan(JSON.stringify(base), Date.parse('2100-01-02T12:00:00Z'))).toBeNull();
   });
 });
 

@@ -1,6 +1,6 @@
 import './style.css';
 import { searchZones } from './city-search';
-import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, utcOffset } from './time';
+import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -35,12 +35,8 @@ const timeOptions = (selected: number) => Array.from({ length: 96 }, (_, i) => {
 function initialPlan(): Plan {
   try {
     if (location.hash) return parsePlan(decodeURIComponent(location.hash.slice(1))) || defaultPlan();
-    const stored = parsePlan(localStorage.getItem(storageKey) || '');
-    if (stored) {
-      // Keep preferred cities, but avoid opening a stale meeting date on a new day.
-      stored.date = localParts(Date.now(), stored.places[0].zone).date;
-      return stored;
-    }
+    const stored = restoreSavedPlan(localStorage.getItem(storageKey) || '');
+    if (stored) return stored;
   } catch { /* Private browsing and malformed links should still open a usable planner. */ }
   return defaultPlan();
 }
