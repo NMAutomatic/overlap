@@ -14,7 +14,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 ## Next: make everyday planning easier
 
 - [x] Explicit UTC offsets in suggestions, slider labels and meeting summaries
-- [ ] Search aliases for common city names and alternate spellings
+- [x] Search aliases for common city names and alternate spellings, with accent-insensitive matching and selected Chinese names
 - [ ] English / Chinese interface toggle with persisted language preference
 - [ ] Named local plans so teams and personal groups can coexist
 - [x] Previous / next day shortcuts and a clear return-to-today action, preserving local time across DST changes

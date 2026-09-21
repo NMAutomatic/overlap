@@ -1,4 +1,5 @@
 import './style.css';
+import { searchZones } from './city-search';
 import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, utcOffset } from './time';
 import type { Plan } from './time';
 
@@ -105,7 +106,7 @@ function render() {
       <section class="bottom-notes"><div><span class="note-number">01</span><div><h3>Set your own hours.</h3><p>Early bird, night owl, or somewhere in between. Adjust each city’s availability.</p></div></div><div><span class="note-number">02</span><div><h3>Keep the whole meeting in mind.</h3><p>A match means your full meeting fits everyone’s hours, including across midnight.</p></div></div><div><span class="note-number">03</span><div><h3>Make it a date.</h3><p>Share a link to the same plan, or save a calendar file. No sign-up required.</p></div></div></section>
     </main>
     <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Weekdays follow each city’s local date; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset my saved plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
-    <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try Tokyo, Kolkata, Auckland…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
+    <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
     <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
     <div id="notice" role="status" aria-live="polite"></div>`;
   draw();
@@ -230,8 +231,7 @@ function bind() {
 }
 
 function showCities(query: string) {
-  const found = zones.filter(zone => !plan.places.some(p => p.zone === zone)
-    && zone.replaceAll('_', ' ').toLowerCase().includes(query.trim().toLowerCase())).slice(0, 40);
+  const found = searchZones(zones, query, plan.places.map(p => p.zone));
   document.querySelector('#city-results')!.innerHTML = found.length ? found.map(zone => `<button class="city-option" data-zone="${escape(zone)}"><span>${escape(city(zone))}<small>${escape(zone)}</small></span>${icon('plus')}</button>`).join('') : '<p class="empty">No matching time zone. Try another city in the same region.</p>';
   document.querySelectorAll<HTMLButtonElement>('[data-zone]').forEach(button => button.onclick = () => {
     if (plan.places.length >= 6) return;
