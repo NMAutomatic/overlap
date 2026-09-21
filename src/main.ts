@@ -1,4 +1,6 @@
 import './style.css';
+import { compromiseSlots } from './compromise';
+import type { Compromise } from './compromise';
 import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
@@ -47,6 +49,7 @@ function initialPlan(): Plan {
 let plan = initialPlan();
 let slots: number[] = [];
 let matches: number[] = [];
+let compromises: Compromise[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
 let zones: string[];
 try { zones = Intl.supportedValuesOf('timeZone'); }
@@ -63,6 +66,7 @@ function recalculate() {
   slots = daySlots(plan.date, plan.places[0].zone);
   plan.index = Math.min(Math.max(plan.index, 0), slots.length - 1);
   matches = matchingSlots(slots, plan);
+  compromises = matches.length ? [] : compromiseSlots(slots, plan);
 }
 function notify(message: string) {
   const toast = document.querySelector<HTMLElement>('#notice')!;
@@ -160,7 +164,8 @@ function draw() {
     <button class="button share full" id="share">${icon('share')} Copy plan link</button>
     <button class="button share full" id="text-summary">${icon('arrow')} Save text summary</button>
     <div class="suggestions"><div class="suggestion-title"><h3>${matches.length ? 'Room to connect' : 'No shared window yet'}</h3><span>${matches.length ? `${matches.length} starts` : 'Check days & hours'}</span></div>
-    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s days or hours, shorten the meeting, or try another date.</p>'}<button class="button share full" id="compare-days">Compare 7 days ${icon('arrow')}</button></div>
+    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s days or hours, shorten the meeting, or try another date.</p>'}<button class="button share full" id="compare-days">Compare 7 days ${icon('arrow')}</button>
+    ${compromises.length ? `<div class="compromise-options"><h4>Closest options</h4><p>These are not full matches. Times in ${escape(city(plan.places[0].zone))}. Each card names the cities that would be outside their hours.</p>${compromises.map(option => `<button data-compromise="${slots.indexOf(option.instant)}" aria-pressed="${option.instant === instant}"><strong>Review ${localParts(option.instant, plan.places[0].zone).time} <small>${escape(utcOffset(option.instant, plan.places[0].zone))}</small></strong><span>${option.fittingCities} of ${plan.places.length} cities fully within hours</span><span class="outside-cost">${option.outside.map(entry => `${escape(city(plan.places[entry.cityIndex].zone))}: ${entry.minutes} min outside hours`).join('<br>')}</span></button>`).join('')}<p>Most cities fully within hours first; ties minimize the worst individual cost, then total minutes outside hours.</p></div>` : ''}</div>
     <div class="result-footnote"><span aria-hidden="true">↳</span> All times adjust for daylight saving.</div>`;
   const slider = document.querySelector<HTMLInputElement>('#time-slider')!;
   slider.value = String(plan.index);
@@ -202,6 +207,11 @@ function bindDynamic() {
     const rect = button.getBoundingClientRect();
     select(event.detail === 0 ? Math.min(plan.index + 1, slots.length - 1) : Math.max(0, Math.min(slots.length - 1, Math.floor((event.clientX - rect.left) / rect.width * slots.length))));
     document.querySelector<HTMLButtonElement>(`[data-timeline="${button.dataset.timeline}"]`)!.focus();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-compromise]').forEach(button => button.onclick = () => {
+    select(Number(button.dataset.compromise));
+    document.querySelector<HTMLInputElement>('#time-slider')!.focus();
+    notify('Partial match selected. Review the cities outside their hours before sharing.');
   });
   document.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach(button => button.onclick = () => {
     select(Number(button.dataset.pick)); document.querySelector<HTMLInputElement>('#time-slider')!.focus();

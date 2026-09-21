@@ -44,3 +44,10 @@
 .result-panel .suggestions #compare-days{margin-top:14px}
 
 input::placeholder{color:var(--muted);opacity:1}
+
+.compromise-options{margin-top:24px;border-top:1px solid #d8ddce;padding-top:18px}
+.compromise-options h4{font-size:12px;font-weight:600;margin:0}
+.compromise-options button{display:grid;width:100%;gap:5px;text-align:left;margin-top:9px;padding:12px;border:1px solid #c5cbbb;border-radius:7px;background:#fffefa70;font-size:10px}
+.compromise-options button:hover,.compromise-options button[aria-pressed=true]{border-color:var(--orange);background:var(--white)}
+.compromise-options strong{font-size:12px}.compromise-options strong small{font-weight:400;font-size:10px}
+.compromise-options .outside-cost{color:var(--orange);line-height:1.7;overflow-wrap:anywhere}

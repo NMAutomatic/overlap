@@ -13,7 +13,8 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - Remove a city without changing the meeting's actual instant. Removing the base city updates the planning date and slider to the next city's local time, including across midnight and repeated DST hours.
 - Adjust each city's hours and available weekdays, including overnight windows and non-Monday–Friday workweeks. Each city can use the plan's default days or its own selection; custom selections stay unchanged when the default changes.
 - Explore the reference city's actual day in 15-minute steps, including 23- and 25-hour daylight-saving days.
-- Suggest meeting starts only when the **whole meeting** fits everyone's availability.
+- Identify full matches only when the **whole meeting** fits everyone's availability.
+- When no full match exists, review up to three partial matches with the exact minutes outside availability for each affected city. These stay labeled as partial matches; selecting one does not change anyone’s available hours.
 - Compare seven calendar dates starting from the planning date, see how many full-duration matches each has, and choose a suggested start. Dates and times follow the base city; custom workweeks and DST apply on every day.
 - Copy a link that restores the date, cities, hours, selected weekdays, duration and selected start.
 - Edit an opened shared plan and refresh without losing changes; its URL updates in place as you work.
@@ -66,6 +67,8 @@ The app uses TypeScript and browser APIs with **no runtime package dependencies*
 Converting an arbitrary local wall-clock time to UTC is ambiguous when clocks go backward, and can be impossible when they go forward. Overlap starts with UTC instants, then uses `Intl.DateTimeFormat` to select those belonging to the reference city's date. A repeated hour stays represented twice, with UTC offsets distinguishing the two occurrences; a skipped hour never appears. Entire skipped local dates are rejected, including in shared links. Shared selections must exist in the actual local day: out-of-range selections are rejected rather than silently moved, while valid selections on unusually long days remain shareable. Calendar exports preserve the selected instant.
 
 The matching engine checks every 15-minute segment for the full duration, including segments after midnight. It ranks valid starts by proximity to the midpoint of each city's availability window and spaces suggestions at least an hour apart. These are convenient suggestions, not an optimization of individual preferences.
+
+If there is no full match on the selected date, partial suggestions first maximize the number of cities whose whole meeting fits, then minimize the largest per-city time outside availability, then the total outside minutes. Ties favor the earlier UTC instant, and suggestions are spaced at least 30 minutes apart. Each cost counts 15-minute intervals using the city’s local hours and selected weekdays. A candidate must fit at least one city fully; no partial suggestions appear if every city would be outside its hours. This is an explicit heuristic, not a claim about participants’ preferences or consent.
 
 Overlapping meeting windows reuse availability checks within a single calculation. The cache is discarded after each calculation, so changing hours or weekdays never reuses an older answer. Run `npm run benchmark` to compare the optimized matcher with an interval-by-interval reference for six cities and a two-hour meeting on a 25-hour day. It verifies equal results and reports median timings; it measures matching only, not browser rendering, and is not a hardware-independent performance guarantee.
 
