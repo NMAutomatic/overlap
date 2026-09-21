@@ -117,8 +117,8 @@ function render() {
       <section class="bottom-notes"><div><span class="note-number">01</span><div><h3>Set your own hours.</h3><p>Early bird, night owl, or somewhere in between. Adjust each city’s availability.</p></div></div><div><span class="note-number">02</span><div><h3>Keep the whole meeting in mind.</h3><p>A match means your full meeting fits everyone’s hours, including across midnight.</p></div></div><div><span class="note-number">03</span><div><h3>Make it a date.</h3><p>Share a link to the same plan, or save a calendar file. No sign-up required.</p></div></div></section>
     </main>
     <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability combines up to three daily windows per city; gaps stay unavailable and equal start and end means all day. Selected days follow each city’s local date; custom city days override the default; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
-    <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
-    <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
+    <dialog id="city-dialog" aria-labelledby="city-title"><form method="dialog" class="dialog-top"><h2 id="city-title">Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
+    <dialog id="share-dialog" aria-labelledby="share-title"><form method="dialog" class="dialog-top"><h2 id="share-title">Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
     <dialog id="compare-dialog" aria-labelledby="compare-title">
       <form method="dialog" class="dialog-top"><h2 id="compare-title">Find a day that works.</h2><button class="icon-button" aria-label="Close day comparison">${icon('close')}</button></form>
       <p id="compare-description" class="small muted"></p><ol id="compared-days"></ol><p id="compare-note" class="small muted"></p>
@@ -332,13 +332,14 @@ function bind() {
     plan.places = presets[button.dataset.preset as keyof typeof presets].map(zone => ({ zone, start: 540, end: 1080 }));
     recalculate(); if (picks.length) plan.index = slots.indexOf(picks[0]);
     persist(); render();
+    document.querySelector<HTMLButtonElement>(`[data-preset="${button.dataset.preset}"]`)!.focus();
   });
   document.querySelector<HTMLButtonElement>('#add-city')!.onclick = () => {
     document.querySelector<HTMLDialogElement>('#city-dialog')!.showModal(); showCities(''); document.querySelector<HTMLInputElement>('#city-search')!.focus();
   };
   document.querySelector<HTMLInputElement>('#city-search')!.oninput = event => showCities((event.target as HTMLInputElement).value);
   document.querySelector<HTMLButtonElement>('#reset')!.onclick = () => {
-    plan = defaultPlan(); persist(); history.replaceState(null, '', location.pathname); render(); notify('Current plan reset. Named snapshots are unchanged.');
+    plan = defaultPlan(); persist(); history.replaceState(null, '', location.pathname); render(); document.getElementById('date')!.focus(); notify('Current plan reset. Named snapshots are unchanged.');
   };
 }
 
@@ -366,7 +367,9 @@ function showCities(query: string) {
   document.querySelectorAll<HTMLButtonElement>('[data-zone]').forEach(button => button.onclick = () => {
     if (plan.places.length >= 6) return;
     plan.places.push({ zone: button.dataset.zone!, start: 540, end: 1080 });
-    document.querySelector<HTMLDialogElement>('#city-dialog')!.close(); persist(); render(); document.querySelector<HTMLButtonElement>('#add-city')!.focus();
+    document.querySelector<HTMLDialogElement>('#city-dialog')!.close(); persist(); render();
+    document.querySelector<HTMLSelectElement>(`[data-city="${plan.places.length - 1}"][data-window="0"][data-hours="start"]`)!.focus();
+    notify(`Added ${city(button.dataset.zone!)}. Set its available hours below.`);
   });
 }
 window.addEventListener('hashchange', () => {

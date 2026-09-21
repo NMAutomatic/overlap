@@ -29,6 +29,8 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 
 ## Quality work
 
+- [x] Name every dialog for assistive technology and preserve keyboard focus when adding cities, switching presets and resetting
+
 - [ ] Automated browser coverage of sharing, city management and keyboard flows
 - [ ] Automated accessibility audit alongside manual checks
 - [x] Improve text contrast for small labels, saved-plan links and meeting end times; verify rendered colors on desktop and mobile

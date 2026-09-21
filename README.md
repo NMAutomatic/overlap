@@ -25,7 +25,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - Remember preferences locally without accounts, tracking scripts or external fonts.
 - Save up to 12 named snapshots in this browser, then load or remove them from “My saved plans”. Snapshots preserve the full plan and its original date; editing the planner does not overwrite them. Names are not included in shared links. Resetting the current plan leaves named snapshots intact; remove them individually from the saved-plan dialog.
 - Reopen saved preferences on today's date in the base city while keeping its local meeting time across daylight-saving changes. Shared links retain their explicit date.
-- Use the planner on mobile or with a keyboard and a screen reader.
+- Use the planner on mobile or with a keyboard and a screen reader. Dialogs have accessible names; adding a city focuses its hours, switching presets keeps focus on the chosen preset, and resetting focuses the planning date.
 
 ## Run locally
 
