@@ -8,3 +8,8 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
 
 .suggestion-buttons small{display:block;font-size:9px;font-weight:400;color:var(--muted)}
+
+/* The text export gets its own row in the compact two-column result panel. */
+@media(max-width:1050px){
+  .result-panel #text-summary{grid-column:1/-1;grid-row:7;margin-top:9px}
+}

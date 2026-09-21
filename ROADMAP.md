@@ -25,7 +25,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 - [ ] Multiple availability windows per day
 - [ ] Multi-day comparison for finding the best day as well as the best hour
 - [ ] Clear tradeoff suggestions when no complete overlap exists
-- [ ] Downloadable text summary of a proposed meeting
+- [x] Downloadable text summary of a proposed meeting, including per-city dates, offsets and availability
 
 ## Quality work
 

@@ -1,5 +1,6 @@
 import './style.css';
 import { searchZones } from './city-search';
+import { meetingSummary } from './meeting-summary';
 import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
 import type { Plan } from './time';
 
@@ -134,6 +135,7 @@ function draw() {
     <div class="meeting-ticket">${plan.places.map(p => `<div><span>${escape(city(p.zone))}</span><div><strong>${localParts(instant, p.zone).time} – ${localParts(end, p.zone).time}</strong><small>${escape(utcOffset(instant, p.zone))}${utcOffset(end, p.zone) !== utcOffset(instant, p.zone) ? ` → ${escape(utcOffset(end, p.zone))}` : ''} · ${dateLabel(instant, p.zone)}${localParts(end, p.zone).date !== localParts(instant, p.zone).date ? ` → ${dateLabel(end, p.zone)}` : ''}</small></div></div>`).join('')}</div>
     <button class="button primary full" id="calendar">${icon('calendar')} Save calendar invite ${icon('arrow')}</button>
     <button class="button share full" id="share">${icon('share')} Copy plan link</button>
+    <button class="button share full" id="text-summary">${icon('arrow')} Save text summary</button>
     <div class="suggestions"><div class="suggestion-title"><h3>${matches.length ? 'Room to connect' : 'No shared window yet'}</h3><span>${matches.length ? `${matches.length} starts` : 'Try wider hours'}</span></div>
     ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s window, shorten the meeting, or try another day.</p>'}</div>
     <div class="result-footnote"><span aria-hidden="true">↳</span> All times adjust for daylight saving.</div>`;
@@ -180,6 +182,13 @@ function bindDynamic() {
       const input = document.querySelector<HTMLInputElement>('#share-value')!;
       input.value = url; document.querySelector<HTMLDialogElement>('#share-dialog')!.showModal(); input.focus(); input.select();
     }
+  };
+  document.querySelector<HTMLButtonElement>('#text-summary')!.onclick = () => {
+    const url = URL.createObjectURL(new Blob([meetingSummary(plan)], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = `overlap-${plan.date}.txt`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify('Text summary downloaded. Ready to share.');
   };
 }
 
