@@ -39,6 +39,36 @@ export function daySlots(date: string, zone: string): number[] {
   return result;
 }
 
+/** Navigate local calendar dates, not fixed 24-hour intervals. */
+export function neighboringDate(date: string, zone: string, direction: -1 | 1): string | null {
+  if (!validDate(date)) return null;
+  let day = Date.parse(`${date}T12:00:00Z`);
+  while (true) {
+    day += direction * 86_400_000;
+    const candidate = new Date(day).toISOString().slice(0, 10);
+    if (!validDate(candidate)) return null;
+    if (daySlots(candidate, zone).length) return candidate;
+  }
+}
+
+/** Preserve the base city's wall-clock time when changing the planning date. */
+export function movePlanDate(plan: Plan, date: string): { plan: Plan; timeAdjusted: boolean } | null {
+  const zone = plan.places[0].zone;
+  const oldSlots = daySlots(plan.date, zone);
+  const nextSlots = daySlots(date, zone);
+  if (!oldSlots.length || !nextSlots.length) return null;
+  const oldInstant = oldSlots[Math.min(Math.max(plan.index, 0), oldSlots.length - 1)];
+  const minute = localParts(oldInstant, zone).minute;
+  const minutes = nextSlots.map(t => localParts(t, zone).minute);
+  // In a repeated hour, prefer the occurrence matching the previous offset.
+  let index = nextSlots.findIndex((t, i) => minutes[i] === minute && utcOffset(t, zone) === utcOffset(oldInstant, zone));
+  if (index < 0) index = minutes.indexOf(minute);
+  // A spring-forward gap moves to the first available wall-clock time after it.
+  if (index < 0) index = minutes.findIndex(m => m > minute);
+  if (index < 0) index = nextSlots.length - 1;
+  return { plan: { ...plan, date, index }, timeAdjusted: minutes[index] !== minute };
+}
+
 export function available(instant: number, place: Place, weekdays = false): boolean {
   const local = localParts(instant, place.zone);
   // An overnight window belongs to the day on which it starts.

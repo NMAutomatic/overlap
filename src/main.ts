@@ -1,5 +1,5 @@
 import './style.css';
-import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, parsePlan, recommend, utcOffset } from './time';
+import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -90,6 +90,11 @@ function render() {
             <label>Duration <select id="duration">${[15, 30, 45, 60, 90, 120].map(n => `<option value="${n}" ${plan.duration === n ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></label>
             <label class="check-label"><input id="weekdays" type="checkbox" ${plan.weekdays ? 'checked' : ''}><span>Weekdays only</span></label>
           </div>
+          <nav class="date-navigation" aria-label="Planning date shortcuts">
+            <button id="previous-day" ${neighboringDate(plan.date, plan.places[0].zone, -1) ? '' : 'disabled'} aria-label="Previous planning day">← Previous day</button>
+            <button id="today" ${plan.date === localParts(Date.now(), plan.places[0].zone).date ? 'disabled' : ''}>Today</button>
+            <button id="next-day" ${neighboringDate(plan.date, plan.places[0].zone, 1) ? '' : 'disabled'} aria-label="Next planning day">Next day →</button>
+          </nav>
           <p class="reference">Date & slider follow <strong>${escape(city(plan.places[0].zone))}</strong> · ${slots.length / 4}-hour day</p>
           <div id="board"></div>
           <div class="scrubber"><div class="scrubber-heading"><label for="time-slider">Explore the day</label><output id="slider-time" for="time-slider"></output></div><input id="time-slider" type="range" min="0" max="${slots.length - 1}" step="1" value="${plan.index}" aria-label="Meeting start time in ${escape(city(plan.places[0].zone))}"><div class="scale"><span>Start of day</span><span>Drag to find your moment</span><span>End of day</span></div></div>
@@ -181,16 +186,33 @@ function bindDynamic() {
   };
 }
 
+function changeDate(date: string, focusId: string) {
+  const moved = movePlanDate(plan, date);
+  if (!moved) {
+    document.querySelector<HTMLInputElement>('#date')!.value = plan.date;
+    notify(`Choose an existing date in ${city(plan.places[0].zone)} between 2000 and 2099.`); return;
+  }
+  plan = moved.plan;
+  persist(); render();
+  const target = document.getElementById(focusId) as HTMLButtonElement | HTMLInputElement;
+  (target.disabled ? document.getElementById('date')! : target).focus();
+  const instant = slots[plan.index];
+  notify(`${dateLabel(instant, plan.places[0].zone)} · ${localParts(instant, plan.places[0].zone).time} ${utcOffset(instant, plan.places[0].zone)}${moved.timeAdjusted ? '. The original time does not exist on this date; moved to the next available time.' : ''}`);
+}
+
 function bind() {
   document.querySelector<HTMLInputElement>('#time-slider')!.oninput = event => select(Number((event.target as HTMLInputElement).value));
   document.querySelector<HTMLInputElement>('#date')!.onchange = event => {
     const date = (event.target as HTMLInputElement).value;
-    if (!parsePlan(JSON.stringify({ ...plan, date }))) {
-      (event.target as HTMLInputElement).value = plan.date;
-      notify(`Choose an existing date in ${city(plan.places[0].zone)} between 2000 and 2099.`); return;
-    }
-    plan.date = date; persist(); render();
+    changeDate(date, 'date');
   };
+  for (const [id, direction] of [['previous-day', -1], ['next-day', 1]] as const) {
+    document.getElementById(id)!.onclick = () => {
+      const date = neighboringDate(plan.date, plan.places[0].zone, direction);
+      if (date) changeDate(date, id);
+    };
+  }
+  document.getElementById('today')!.onclick = () => changeDate(localParts(Date.now(), plan.places[0].zone).date, 'today');
   document.querySelector<HTMLSelectElement>('#duration')!.onchange = event => { plan.duration = Number((event.target as HTMLSelectElement).value); recalculate(); persist(); draw(); };
   document.querySelector<HTMLInputElement>('#weekdays')!.onchange = event => { plan.weekdays = (event.target as HTMLInputElement).checked; recalculate(); persist(); draw(); };
   document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach(button => button.onclick = () => {

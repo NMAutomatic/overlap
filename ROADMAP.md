@@ -17,7 +17,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 - [ ] Search aliases for common city names and alternate spellings
 - [ ] English / Chinese interface toggle with persisted language preference
 - [ ] Named local plans so teams and personal groups can coexist
-- [ ] Previous / next day shortcuts and a clear return-to-today action
+- [x] Previous / next day shortcuts and a clear return-to-today action, preserving local time across DST changes
 
 ## Then: improve the planning model
 

@@ -1,8 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, parsePlan, recommend, STEP, utcOffset } from './time';
+import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, STEP, utcOffset } from './time';
 import type { Place, Plan } from './time';
 const toronto: Place = { zone: 'America/Toronto', start: 540, end: 1020 };
 const base: Plan = { date: '2026-09-14', places: [toronto], duration: 60, index: 0, weekdays: false };
+
+describe('planning date navigation', () => {
+  it('crosses leap days and year boundaries without leaving the supported range', () => {
+    expect(neighboringDate('2028-03-01', 'UTC', -1)).toBe('2028-02-29');
+    expect(neighboringDate('2026-12-31', 'UTC', 1)).toBe('2027-01-01');
+    expect(neighboringDate('2000-01-01', 'UTC', -1)).toBeNull();
+    expect(neighboringDate('2099-12-31', 'UTC', 1)).toBeNull();
+  });
+  it('skips an entirely nonexistent local date in both directions', () => {
+    expect(neighboringDate('2011-12-29', 'Pacific/Apia', 1)).toBe('2011-12-31');
+    expect(neighboringDate('2011-12-31', 'Pacific/Apia', -1)).toBe('2011-12-29');
+  });
+  it('keeps 11:00 when the new day is an hour shorter', () => {
+    const plan = { ...base, date: '2026-03-07', index: 44 };
+    const moved = movePlanDate(plan, '2026-03-08')!;
+    expect(moved.plan.index).toBe(40);
+    expect(moved.timeAdjusted).toBe(false);
+    expect(localParts(daySlots(moved.plan.date, toronto.zone)[moved.plan.index], toronto.zone).time).toBe('11:00');
+    expect(plan.date).toBe('2026-03-07');
+    expect(plan.index).toBe(44);
+  });
+  it('moves a nonexistent 02:30 to 03:00 and flags the adjustment', () => {
+    const moved = movePlanDate({ ...base, date: '2026-03-07', index: 10 }, '2026-03-08')!;
+    expect(moved.timeAdjusted).toBe(true);
+    expect(localParts(daySlots(moved.plan.date, toronto.zone)[moved.plan.index], toronto.zone).time).toBe('03:00');
+  });
+  it('prefers the previous UTC offset when a wall-clock time repeats', () => {
+    for (const [date, expected] of [['2026-10-31', '2026-11-01T05:30:00.000Z'], ['2026-11-02', '2026-11-01T06:30:00.000Z']]) {
+      const moved = movePlanDate({ ...base, date, index: 6 }, '2026-11-01')!;
+      expect(new Date(daySlots(moved.plan.date, toronto.zone)[moved.plan.index]).toISOString()).toBe(expected);
+      expect(moved.timeAdjusted).toBe(false);
+    }
+  });
+  it('rejects impossible target dates instead of creating an empty timeline', () => {
+    expect(movePlanDate(base, '2026-02-30')).toBeNull();
+    expect(movePlanDate({ ...base, places: [{ ...toronto, zone: 'Pacific/Apia' }] }, '2011-12-30')).toBeNull();
+  });
+});
 
 describe('IANA day boundaries', () => {
   it('has 23 hours on spring-forward and no nonexistent 02:00', () => {
