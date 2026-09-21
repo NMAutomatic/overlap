@@ -20,3 +20,12 @@
 .saved-plan-row>div:first-child{min-width:0;overflow-wrap:anywhere}.saved-plan-row strong{font-size:13px}.saved-plan-row small{display:block;color:var(--muted);font-size:10px;line-height:1.7;margin-top:4px}
 .saved-plan-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}.saved-plan-actions .button{min-height:34px;padding:0 10px;font-size:11px}
 @media(max-width:520px){.save-plan-fields .button{width:100%}.saved-plan-row{align-items:flex-start;flex-direction:column}.saved-plan-actions{width:100%;justify-content:space-between}}
+
+.days-help{font-size:10px;color:var(--muted);margin:10px 0 0}
+.city-days{border:0;padding:0;margin:0 0 12px;min-width:0}
+.city-days legend{font-size:10px;color:var(--muted);padding:0;margin-bottom:6px}
+.day-buttons{display:flex;gap:5px}.day-buttons button{flex:1;max-width:45px;min-width:0;min-height:38px;padding:5px 2px;border:1px solid var(--line);border-radius:5px;font-size:11px;background:var(--white)}
+.day-buttons button[aria-pressed=true]{background:var(--light-green);border-color:var(--green);color:var(--ink);font-weight:650}
+.days-caption{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--muted);margin-top:5px;min-height:26px}
+.days-caption button{font-size:10px;text-decoration:underline;padding:5px 0}
+@media(max-width:520px){.day-buttons button{min-height:44px}.controls label{min-width:0}.controls label:last-child{flex-basis:100%}}

@@ -2,7 +2,7 @@ import './style.css';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
-import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
+import { availabilityDays, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -29,6 +29,7 @@ const icon = (name: string) => {
   };
   return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.arrow}</svg>`;
 };
+const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const timeOptions = (selected: number) => Array.from({ length: 96 }, (_, i) => {
   const minutes = i * 15;
   const label = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
@@ -93,8 +94,9 @@ function render() {
           <div class="controls">
             <label>Planning date <input id="date" type="date" min="2000-01-01" max="2099-12-31" value="${plan.date}"></label>
             <label>Duration <select id="duration">${[15, 30, 45, 60, 90, 120].map(n => `<option value="${n}" ${plan.duration === n ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></label>
-            <label class="check-label"><input id="weekdays" type="checkbox" ${plan.weekdays ? 'checked' : ''}><span>Weekdays only</span></label>
+            <label>Default days <select id="weekdays"><option value="all" ${!plan.weekdays ? 'selected' : ''}>Every day</option><option value="weekdays" ${plan.weekdays ? 'selected' : ''}>Mon–Fri</option></select></label>
           </div>
+          <p class="days-help">Choose days per city below, or keep the default. Overnight hours belong to the day they start.</p>
           <nav class="date-navigation" aria-label="Planning date shortcuts">
             <button id="previous-day" ${neighboringDate(plan.date, plan.places[0].zone, -1) ? '' : 'disabled'} aria-label="Previous planning day">← Previous day</button>
             <button id="today" ${plan.date === localParts(Date.now(), plan.places[0].zone).date ? 'disabled' : ''}>Today</button>
@@ -109,7 +111,7 @@ function render() {
       </div>
       <section class="bottom-notes"><div><span class="note-number">01</span><div><h3>Set your own hours.</h3><p>Early bird, night owl, or somewhere in between. Adjust each city’s availability.</p></div></div><div><span class="note-number">02</span><div><h3>Keep the whole meeting in mind.</h3><p>A match means your full meeting fits everyone’s hours, including across midnight.</p></div></div><div><span class="note-number">03</span><div><h3>Make it a date.</h3><p>Share a link to the same plan, or save a calendar file. No sign-up required.</p></div></div></section>
     </main>
-    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Weekdays follow each city’s local date; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
+    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Selected days follow each city’s local date; custom city days override the default; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
     <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
     <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
     <dialog id="saved-dialog" aria-labelledby="saved-title">
@@ -129,11 +131,13 @@ function draw() {
   const end = instant + plan.duration * 60_000;
   document.querySelector('#board')!.innerHTML = plan.places.map((p, i) => {
     const local = localParts(instant, p.zone);
+    const days = availabilityDays(p, plan.weekdays);
     const fit = meetingFits(instant, p, plan.duration, plan.weekdays);
     const selectedWidth = Math.min(plan.duration / 15, slots.length - plan.index) / slots.length * 100;
     return `<article class="city-row">
       <div class="city-top"><div class="city-identity"><span class="city-symbol color-${i % 3}" aria-hidden="true">${i === 0 ? '⌂' : '↗'}</span><div><h3>${escape(city(p.zone))}${i === 0 ? '<span class="reference-badge">BASE</span>' : ''}</h3><span class="city-zone">${escape(utcOffset(instant, p.zone))} · ${escape(p.zone.split('/')[0])}</span></div></div><div class="city-clock"><strong>${local.time}</strong><span>${dateLabel(instant, p.zone)}</span></div><button class="icon-button remove" data-remove="${i}" aria-label="Remove ${escape(city(p.zone))}" ${plan.places.length === 1 ? 'disabled' : ''}>${icon('close')}</button></div>
       <div class="city-hours"><span class="fit-label ${fit ? 'fits' : ''}">${fit ? '● Within hours' : '○ Outside hours'}</span><label>Available <select data-hours="start" data-city="${i}" aria-label="${escape(city(p.zone))} availability start">${timeOptions(p.start)}</select></label><span>–</span><select data-hours="end" data-city="${i}" aria-label="${escape(city(p.zone))} availability end">${timeOptions(p.end)}</select></div>
+      <fieldset class="city-days"><legend>${escape(city(p.zone))} available days</legend><div class="day-buttons">${[1, 2, 3, 4, 5, 6, 0].map(day => `<button data-day="${day}" data-city="${i}" aria-label="${escape(city(p.zone))} ${dayNames[day]}" aria-pressed="${days.includes(day)}">${dayNames[day].slice(0, 2)}</button>`).join('')}</div><div class="days-caption"><span>${p.days === undefined ? 'Using default days' : days.length ? 'Custom days' : 'No available days'}</span><button data-default-days="${i}" aria-label="Use default days for ${escape(city(p.zone))}" ${p.days === undefined ? 'disabled' : ''}>Use default</button></div></fieldset>
       <button class="timeline" data-timeline="${i}" aria-label="Select a time on ${escape(city(p.zone))} timeline" style="--count:${slots.length}">${slots.map(t => `<span class="tick ${available(t, p, plan.weekdays) ? 'open' : ''}" aria-hidden="true"></span>`).join('')}<span class="selection" style="left:${plan.index / slots.length * 100}%;width:${selectedWidth}%" aria-hidden="true"></span></button>
       <div class="hour-labels" aria-hidden="true">${[0, .25, .5, .75].map(f => `<span>${localParts(slots[Math.floor(slots.length * f)], p.zone).time}</span>`).join('')}<span>${localParts(slots.at(-1)! + 15 * 60_000, p.zone).time}</span></div>
     </article>`;
@@ -150,8 +154,8 @@ function draw() {
     <button class="button primary full" id="calendar">${icon('calendar')} Save calendar invite ${icon('arrow')}</button>
     <button class="button share full" id="share">${icon('share')} Copy plan link</button>
     <button class="button share full" id="text-summary">${icon('arrow')} Save text summary</button>
-    <div class="suggestions"><div class="suggestion-title"><h3>${matches.length ? 'Room to connect' : 'No shared window yet'}</h3><span>${matches.length ? `${matches.length} starts` : 'Try wider hours'}</span></div>
-    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s window, shorten the meeting, or try another day.</p>'}</div>
+    <div class="suggestions"><div class="suggestion-title"><h3>${matches.length ? 'Room to connect' : 'No shared window yet'}</h3><span>${matches.length ? `${matches.length} starts` : 'Check days & hours'}</span></div>
+    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s days or hours, shorten the meeting, or try another date.</p>'}</div>
     <div class="result-footnote"><span aria-hidden="true">↳</span> All times adjust for daylight saving.</div>`;
   const slider = document.querySelector<HTMLInputElement>('#time-slider')!;
   slider.value = String(plan.index);
@@ -163,6 +167,19 @@ function draw() {
 
 function select(index: number) { plan.index = index; persist(); draw(); }
 function bindDynamic() {
+  document.querySelectorAll<HTMLButtonElement>('[data-day]').forEach(button => button.onclick = () => {
+    const place = plan.places[Number(button.dataset.city)];
+    const day = Number(button.dataset.day);
+    const days = availabilityDays(place, plan.weekdays);
+    place.days = days.includes(day) ? days.filter(value => value !== day) : [...days, day].sort();
+    recalculate(); persist(); draw();
+    document.querySelector<HTMLButtonElement>(`[data-city="${button.dataset.city}"][data-day="${day}"]`)!.focus();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-default-days]').forEach(button => button.onclick = () => {
+    delete plan.places[Number(button.dataset.defaultDays)].days;
+    recalculate(); persist(); draw();
+    document.querySelector<HTMLButtonElement>(`[data-city="${button.dataset.defaultDays}"][data-day="1"]`)!.focus();
+  });
   document.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach(button => button.onclick = () => {
     const updated = removePlanPlace(plan, Number(button.dataset.remove));
     if (!updated) {
@@ -249,7 +266,7 @@ function bind() {
   }
   document.getElementById('today')!.onclick = () => changeDate(localParts(Date.now(), plan.places[0].zone).date, 'today');
   document.querySelector<HTMLSelectElement>('#duration')!.onchange = event => { plan.duration = Number((event.target as HTMLSelectElement).value); recalculate(); persist(); draw(); };
-  document.querySelector<HTMLInputElement>('#weekdays')!.onchange = event => { plan.weekdays = (event.target as HTMLInputElement).checked; recalculate(); persist(); draw(); };
+  document.querySelector<HTMLSelectElement>('#weekdays')!.onchange = event => { plan.weekdays = (event.target as HTMLSelectElement).value === 'weekdays'; recalculate(); persist(); draw(); };
   document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach(button => button.onclick = () => {
     plan.places = presets[button.dataset.preset as keyof typeof presets].map(zone => ({ zone, start: 540, end: 1080 }));
     recalculate(); const picks = recommend(matches, plan.places); if (picks.length) plan.index = slots.indexOf(picks[0]);

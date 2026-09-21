@@ -11,11 +11,13 @@ const store = () => {
 describe('named local plans', () => {
   it('stores independent snapshots and restores all scheduling fields', () => {
     const storage = store();
-    const copy = structuredClone(plan);
+    const withDays = { ...plan, places: [{ ...plan.places[0], days: [0, 1, 2, 3, 4] }] };
+    const copy = structuredClone(withDays);
     saveNamedPlan(storage, ' Team ', copy);
     copy.places[0].start = 600;
+    copy.places[0].days.push(5);
     saveNamedPlan(storage, 'Friends', { ...plan, duration: 30 });
-    expect(readSavedPlans(storage)).toEqual([{ name: 'Team', plan }, { name: 'Friends', plan: { ...plan, duration: 30 } }]);
+    expect(readSavedPlans(storage)).toEqual([{ name: 'Team', plan: withDays }, { name: 'Friends', plan: { ...plan, duration: 30 } }]);
   });
   it('rejects duplicate names without overwriting an existing plan', () => {
     const storage = store(); saveNamedPlan(storage, 'Team', plan);

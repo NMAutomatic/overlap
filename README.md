@@ -11,10 +11,10 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - Compare up to six time zones, with searchable cities and three starting presets. Search accepts common aliases (NYC, Kolkata/Calcutta), accents and selected Chinese city names.
 - Move to the previous day, next day or today while preserving the base city's local meeting time. If daylight saving skips that time, the planner moves forward to an available time and tells you.
 - Remove a city without changing the meeting's actual instant. Removing the base city updates the planning date and slider to the next city's local time, including across midnight and repeated DST hours.
-- Adjust each city's availability, including overnight windows and optional weekdays.
+- Adjust each city's hours and available weekdays, including overnight windows and non-Monday–Friday workweeks. Each city can use the plan's default days or its own selection; custom selections stay unchanged when the default changes.
 - Explore the reference city's actual day in 15-minute steps, including 23- and 25-hour daylight-saving days.
 - Suggest meeting starts only when the **whole meeting** fits everyone's availability.
-- Copy a link that restores the date, cities, hours, duration and selected start.
+- Copy a link that restores the date, cities, hours, selected weekdays, duration and selected start.
 - Edit an opened shared plan and refresh without losing changes; its URL updates in place as you work.
 - Export an `.ics` calendar event with unambiguous UTC times.
 - Download a plain-text meeting proposal with start/end dates, UTC offsets and availability for every city, ready to send in a chat.
@@ -69,7 +69,7 @@ Overlapping meeting windows reuse availability checks within a single calculatio
 
 There is no application backend. The current plan is kept in `localStorage`; reset it from the footer. Sharing encodes that plan in a URL fragment. The fragment is not sent in the HTTP page request, but **anyone you give the link to can read its contents**. The static hosting provider still processes normal page requests.
 
-Availability is a repeating daily window, not a connected calendar. Equal start and end times mean all-day availability. For overnight windows, the weekday belongs to the day the window starts. Holidays, personal calendar conflicts, per-day schedules and live collaboration are not yet supported.
+Availability is a repeating daily window, not a connected calendar. Equal start and end times mean all-day availability. Select available days separately for each city; selecting no days means that city is unavailable all week. For overnight windows, the weekday belongs to the day the window starts. Custom city days are included in shared links and named snapshots; older plans without custom days retain their original default behavior. Holidays, personal calendar conflicts, different hours on different weekdays and live collaboration are not yet supported.
 
 Time-zone rules come from the browser and may lag government changes. The supported planning range is 2000–2099 with quarter-hour resolution. This is a planning aid; confirm important meeting times with participants.
 

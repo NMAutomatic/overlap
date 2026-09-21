@@ -21,7 +21,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 
 ## Then: improve the planning model
 
-- [ ] Per-city weekday selection, including non-Monday–Friday workweeks
+- [x] Per-city weekday selection, including non-Monday–Friday workweeks
 - [ ] Multiple availability windows per day
 - [ ] Multi-day comparison for finding the best day as well as the best hour
 - [ ] Clear tradeoff suggestions when no complete overlap exists

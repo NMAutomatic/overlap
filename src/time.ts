@@ -1,5 +1,5 @@
 export const STEP = 15 * 60_000;
-export type Place = { zone: string; start: number; end: number };
+export type Place = { zone: string; start: number; end: number; days?: number[] };
 export type Plan = { date: string; places: Place[]; duration: number; index: number; weekdays: boolean };
 const cache = new Map<string, Intl.DateTimeFormat>();
 
@@ -82,6 +82,14 @@ export function removePlanPlace(plan: Plan, removeIndex: number): Plan | null {
   return { ...plan, places, date, index };
 }
 
+const everyDay = [0, 1, 2, 3, 4, 5, 6] as const;
+const workingDays = [1, 2, 3, 4, 5] as const;
+
+/** Explicit city days override the plan default. Sunday is 0; an empty list is closed. */
+export function availabilityDays(place: Place, weekdays = false): readonly number[] {
+  return place.days ?? (weekdays ? workingDays : everyDay);
+}
+
 export function available(instant: number, place: Place, weekdays = false): boolean {
   const local = localParts(instant, place.zone);
   // An overnight window belongs to the day on which it starts.
@@ -89,7 +97,7 @@ export function available(instant: number, place: Place, weekdays = false): bool
   const ownerDay = overnight && local.minute < place.end
     ? new Date(Date.parse(`${local.date}T12:00:00Z`) - 86_400_000).getUTCDay()
     : new Date(`${local.date}T12:00:00Z`).getUTCDay();
-  if (weekdays && (ownerDay === 0 || ownerDay === 6)) return false;
+  if (!availabilityDays(place, weekdays).includes(ownerDay)) return false;
   if (place.start === place.end) return true;
   return overnight ? local.minute >= place.start || local.minute < place.end
     : local.minute >= place.start && local.minute < place.end;
@@ -157,12 +165,15 @@ export function parsePlan(raw: string): Plan | null {
     for (const place of p.places) {
       if (!place || typeof place.zone !== 'string' || place.zone.length > 80 || zones.has(place.zone)) return null;
       for (const v of [place.start, place.end]) if (!Number.isInteger(v) || v < 0 || v >= 1440 || v % 15 !== 0) return null;
+      if (place.days !== undefined && (!Array.isArray(place.days) || place.days.length > 7
+        || new Set(place.days).size !== place.days.length
+        || place.days.some(day => !Number.isInteger(day) || day < 0 || day > 6))) return null;
       new Intl.DateTimeFormat('en', { timeZone: place.zone }).format();
       zones.add(place.zone);
     }
     if (p.index >= daySlots(p.date, p.places[0].zone).length) return null;
     return { date: p.date, duration: p.duration, index: p.index, weekdays: p.weekdays,
-      places: p.places.map(({ zone, start, end }) => ({ zone, start, end })) };
+      places: p.places.map(({ zone, start, end, days }) => ({ zone, start, end, ...(days === undefined ? {} : { days: [...days].sort() }) })) };
   } catch { return null; }
 }
 
