@@ -1,4 +1,5 @@
 import './style.css';
+import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
@@ -114,6 +115,10 @@ function render() {
     <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Selected days follow each city’s local date; custom city days override the default; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
     <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
     <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
+    <dialog id="compare-dialog" aria-labelledby="compare-title">
+      <form method="dialog" class="dialog-top"><h2 id="compare-title">Find a day that works.</h2><button class="icon-button" aria-label="Close day comparison">${icon('close')}</button></form>
+      <p id="compare-description" class="small muted"></p><ol id="compared-days"></ol><p id="compare-note" class="small muted"></p>
+    </dialog>
     <dialog id="saved-dialog" aria-labelledby="saved-title">
       <form method="dialog" class="dialog-top"><h2 id="saved-title">My saved plans</h2><button class="icon-button" aria-label="Close saved plans">${icon('close')}</button></form>
       <p class="small muted">Save up to 12 snapshots in this browser. Each keeps its date, cities, hours and meeting time.</p>
@@ -155,7 +160,7 @@ function draw() {
     <button class="button share full" id="share">${icon('share')} Copy plan link</button>
     <button class="button share full" id="text-summary">${icon('arrow')} Save text summary</button>
     <div class="suggestions"><div class="suggestion-title"><h3>${matches.length ? 'Room to connect' : 'No shared window yet'}</h3><span>${matches.length ? `${matches.length} starts` : 'Check days & hours'}</span></div>
-    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s days or hours, shorten the meeting, or try another date.</p>'}</div>
+    ${matches.length ? `<p>Suggested starts in ${escape(city(plan.places[0].zone))}. Each fits the full ${plan.duration} minutes.</p><div class="suggestion-buttons">${picks.map(t => `<button data-pick="${slots.indexOf(t)}" class="${t === instant ? 'active' : ''}"><span>${localParts(t, plan.places[0].zone).time}<small>${escape(utcOffset(t, plan.places[0].zone))}</small></span>${icon('arrow')}</button>`).join('')}</div>` : '<p>Someone would be outside their available hours. Adjust a city’s days or hours, shorten the meeting, or try another date.</p>'}<button class="button share full" id="compare-days">Compare 7 days ${icon('arrow')}</button></div>
     <div class="result-footnote"><span aria-hidden="true">↳</span> All times adjust for daylight saving.</div>`;
   const slider = document.querySelector<HTMLInputElement>('#time-slider')!;
   slider.value = String(plan.index);
@@ -167,6 +172,7 @@ function draw() {
 
 function select(index: number) { plan.index = index; persist(); draw(); }
 function bindDynamic() {
+  document.getElementById('compare-days')!.onclick = showDayComparison;
   document.querySelectorAll<HTMLButtonElement>('[data-day]').forEach(button => button.onclick = () => {
     const place = plan.places[Number(button.dataset.city)];
     const day = Number(button.dataset.day);
@@ -221,6 +227,29 @@ function bindDynamic() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     notify('Text summary downloaded. Ready to share.');
   };
+}
+
+function showDayComparison() {
+  const days = compareDays(plan);
+  const zone = plan.places[0].zone;
+  document.getElementById('compare-description')!.textContent = `${days.length} dates starting ${plan.date}, in ${city(zone)}. Each possible start fits the full ${plan.duration} minutes for every city. Times below follow ${city(zone)}.`;
+  document.getElementById('compared-days')!.innerHTML = days.map((day, i) => {
+    const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day.date}T12:00:00Z`));
+    const suggestion = day.suggested;
+    const time = suggestion ? `${localParts(suggestion.instant, zone).time} ${utcOffset(suggestion.instant, zone)}` : '';
+    return `<li><button data-compare-day="${i}" ${suggestion ? '' : 'disabled'} ${suggestion ? `aria-label="Choose ${day.date} at ${escape(time)}"` : ''}><span><strong>${weekday} · ${day.date}</strong><small>${day.exists ? `${day.starts} possible starts` : 'Date does not exist in this city'}</small></span><span class="compared-start">${suggestion ? `Choose ${escape(time)} ${icon('arrow')}` : 'No match'}</span></button></li>`;
+  }).join('');
+  document.getElementById('compare-note')!.textContent = days.some(day => day.starts)
+    ? 'Choose a suggested start to update the planner. Counts are alternative starts, not separate meetings.'
+    : 'No full matches in this range. Try changing available days, hours or meeting duration.';
+  document.querySelectorAll<HTMLButtonElement>('[data-compare-day]').forEach(button => button.onclick = () => {
+    const day = days[Number(button.dataset.compareDay)];
+    if (!day.suggested) return;
+    plan = { ...plan, date: day.date, index: day.suggested.index };
+    persist(); render(); document.getElementById('compare-days')!.focus();
+    notify(`Selected ${day.date} · ${localParts(day.suggested.instant, zone).time} ${utcOffset(day.suggested.instant, zone)}. Fits every city.`);
+  });
+  document.querySelector<HTMLDialogElement>('#compare-dialog')!.showModal();
 }
 
 function changeDate(date: string, focusId: string) {

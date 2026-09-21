@@ -14,6 +14,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - Adjust each city's hours and available weekdays, including overnight windows and non-Monday–Friday workweeks. Each city can use the plan's default days or its own selection; custom selections stay unchanged when the default changes.
 - Explore the reference city's actual day in 15-minute steps, including 23- and 25-hour daylight-saving days.
 - Suggest meeting starts only when the **whole meeting** fits everyone's availability.
+- Compare seven calendar dates starting from the planning date, see how many full-duration matches each has, and choose a suggested start. Dates and times follow the base city; custom workweeks and DST apply on every day.
 - Copy a link that restores the date, cities, hours, selected weekdays, duration and selected start.
 - Edit an opened shared plan and refresh without losing changes; its URL updates in place as you work.
 - Export an `.ics` calendar event with unambiguous UTC times.
@@ -53,6 +54,7 @@ The app uses TypeScript and browser APIs with **no runtime package dependencies*
 | --- | --- |
 | `src/time.ts` | Time-zone conversion, day boundaries, availability, suggestions, share validation and calendar serialization |
 | `src/time.test.ts` | Regression cases for DST, date-line crossings, fractional offsets, overnight hours, validation and calendar output |
+| `src/compare-days.ts` | Seven-date comparison with full-duration matches and exact suggested instants |
 | `src/city-search.ts` | Ranked city, alias and IANA path search using browser-supported zone IDs |
 | `src/main.ts` | UI state, local persistence and browser interactions |
 | `src/style.css` | Responsive layout and accessible focus states |

@@ -23,7 +23,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 
 - [x] Per-city weekday selection, including non-Monday–Friday workweeks
 - [ ] Multiple availability windows per day
-- [ ] Multi-day comparison for finding the best day as well as the best hour
+- [x] Seven-day comparison with full-duration match counts and selectable suggested starts
 - [ ] Clear tradeoff suggestions when no complete overlap exists
 - [x] Downloadable text summary of a proposed meeting, including per-city dates, offsets and availability
 

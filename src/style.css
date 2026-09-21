@@ -29,3 +29,16 @@
 .days-caption{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--muted);margin-top:5px;min-height:26px}
 .days-caption button{font-size:10px;text-decoration:underline;padding:5px 0}
 @media(max-width:520px){.day-buttons button{min-height:44px}.controls label{min-width:0}.controls label:last-child{flex-basis:100%}}
+
+#compare-dialog{width:min(580px,calc(100% - 32px))}
+#compare-dialog .dialog-top{gap:12px;margin-bottom:14px}#compare-dialog .icon-button{flex-shrink:0}
+#compared-days{list-style:none;margin:18px 0;padding:0}
+#compared-days li+li{border-top:1px solid var(--line)}
+#compared-days button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:13px 6px;border-radius:6px;min-height:64px}
+#compared-days button:hover:not(:disabled){background:var(--light-green)}
+#compared-days button:disabled{opacity:1;color:var(--muted)}
+#compared-days strong{font-size:12px;font-weight:550}#compared-days small{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+.compared-start{display:flex;align-items:center;gap:7px;font-size:11px;white-space:nowrap}.compared-start svg{width:15px}
+@media(max-width:520px){#compare-dialog{padding:20px}#compare-dialog h2{font-size:22px}#compared-days button{flex-wrap:wrap;gap:6px}.compared-start{font-size:10px}}
+
+.result-panel .suggestions #compare-days{margin-top:14px}
