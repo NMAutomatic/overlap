@@ -35,7 +35,7 @@ const timeOptions = (selected: number) => Array.from({ length: 96 }, (_, i) => {
 }).join('');
 function initialPlan(): Plan {
   try {
-    if (location.hash) return parsePlan(decodeURIComponent(location.hash.slice(1))) || defaultPlan();
+    if (location.hash && location.hash !== '#planner') return parsePlan(decodeURIComponent(location.hash.slice(1))) || defaultPlan();
     const stored = restoreSavedPlan(localStorage.getItem(storageKey) || '');
     if (stored) return stored;
   } catch { /* Private browsing and malformed links should still open a usable planner. */ }
@@ -50,7 +50,12 @@ try { zones = Intl.supportedValuesOf('timeZone'); }
 catch { zones = [...presets.atlantic, ...presets.global, ...presets.distance, 'Asia/Kolkata', 'Asia/Kathmandu', 'Pacific/Auckland']; }
 zones = [...new Set(['UTC', ...zones])];
 
-function persist() { try { localStorage.setItem(storageKey, JSON.stringify(plan)); } catch { /* Optional storage. */ } }
+function planURL() { return `${location.origin}${location.pathname}${location.search}#${encodeURIComponent(JSON.stringify(plan))}`; }
+function persist() {
+  try { localStorage.setItem(storageKey, JSON.stringify(plan)); } catch { /* Optional storage. */ }
+  // Keep an opened share editable across refresh, without adding browser history entries.
+  if (location.hash && location.hash !== '#planner') history.replaceState(null, '', planURL());
+}
 function recalculate() {
   slots = daySlots(plan.date, plan.places[0].zone);
   plan.index = Math.min(Math.max(plan.index, 0), slots.length - 1);
@@ -74,7 +79,7 @@ function render() {
       <a href="${import.meta.env.BASE_URL}" class="brand" aria-label="Overlap home"><span class="brand-mark" aria-hidden="true"></span>overlap</a>
       <div class="header-right"><span class="local-note"><i></i> Works in your browser</span><a href="https://github.com/NMAutomatic/overlap" target="_blank" rel="noopener noreferrer">Source code ↗</a></div>
     </header>
-    <main class="shell" id="planner">
+    <main class="shell" id="planner" tabindex="-1">
       <section class="intro">
         <div><p class="eyebrow">LESS BACK-AND-FORTH, MORE TIME TOGETHER</p><h1>A good time.<br><span>For everyone.</span></h1></div>
         <div class="intro-aside"><div class="orbit" aria-hidden="true"><span></span><span></span><i></i></div><p>Different cities. One shared moment.<br>Find the hours that work for all of you.</p></div>
@@ -176,7 +181,7 @@ function bindDynamic() {
     setTimeout(() => URL.revokeObjectURL(url), 1000); notify('Calendar file downloaded. Open it in your calendar app.');
   };
   document.querySelector<HTMLButtonElement>('#share')!.onclick = async () => {
-    const url = `${location.origin}${location.pathname}#${encodeURIComponent(JSON.stringify(plan))}`;
+    const url = planURL();
     try { await navigator.clipboard.writeText(url); notify('Plan link copied. Ready to share.'); }
     catch {
       const input = document.querySelector<HTMLInputElement>('#share-value')!;
@@ -207,6 +212,9 @@ function changeDate(date: string, focusId: string) {
 }
 
 function bind() {
+  document.querySelector<HTMLAnchorElement>('.skip')!.onclick = event => {
+    event.preventDefault(); document.getElementById('planner')!.focus();
+  };
   document.querySelector<HTMLInputElement>('#time-slider')!.oninput = event => select(Number((event.target as HTMLInputElement).value));
   document.querySelector<HTMLInputElement>('#date')!.onchange = event => {
     const date = (event.target as HTMLInputElement).value;
@@ -245,6 +253,7 @@ function showCities(query: string) {
   });
 }
 window.addEventListener('hashchange', () => {
+  if (!location.hash || location.hash === '#planner') return;
   try { const shared = parsePlan(decodeURIComponent(location.hash.slice(1))); if (shared) { plan = shared; render(); notify('Shared plan opened.'); } else notify('This plan link is invalid. Your current plan is unchanged.'); }
   catch { notify('This plan link is invalid. Your current plan is unchanged.'); }
 });

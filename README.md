@@ -15,6 +15,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - Explore the reference city's actual day in 15-minute steps, including 23- and 25-hour daylight-saving days.
 - Suggest meeting starts only when the **whole meeting** fits everyone's availability.
 - Copy a link that restores the date, cities, hours, duration and selected start.
+- Edit an opened shared plan and refresh without losing changes; its URL updates in place as you work.
 - Export an `.ics` calendar event with unambiguous UTC times.
 - Download a plain-text meeting proposal with start/end dates, UTC offsets and availability for every city, ready to send in a chat.
 - Remember preferences locally without accounts, tracking scripts or external fonts.
