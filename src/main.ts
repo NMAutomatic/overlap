@@ -45,6 +45,7 @@ let linkWarning = initial.invalidLink
   ? `The link is invalid or incomplete. ${initial.source === 'saved' ? 'Your saved preferences are' : 'The starter plan is'} shown below instead.` : '';
 let slots: number[] = [];
 let matches: number[] = [];
+let picks: number[] = [];
 let compromises: Compromise[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
 let zones: string[];
@@ -63,6 +64,7 @@ function recalculate() {
   slots = daySlots(plan.date, plan.places[0].zone);
   plan.index = Math.min(Math.max(plan.index, 0), slots.length - 1);
   matches = matchingSlots(slots, plan);
+  picks = recommend(matches, plan.places);
   compromises = matches.length ? [] : compromiseSlots(slots, plan);
 }
 function notify(message: string) {
@@ -151,7 +153,6 @@ function draw() {
   }).join('');
   const count = plan.places.filter(p => meetingFits(instant, p, plan.duration, plan.weekdays)).length;
   const allFit = count === plan.places.length;
-  const picks = recommend(matches, plan.places);
   document.querySelector('#result')!.innerHTML = `
     <p class="eyebrow">02 / YOUR SHARED MOMENT</p>
     <div class="result-status ${allFit ? 'good' : 'mixed'}"><i></i>${allFit ? 'A good time for everyone' : `${count} of ${plan.places.length} cities within hours`}</div>
@@ -311,7 +312,7 @@ function bind() {
   document.querySelector<HTMLSelectElement>('#weekdays')!.onchange = event => { plan.weekdays = (event.target as HTMLSelectElement).value === 'weekdays'; recalculate(); persist(); draw(); };
   document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach(button => button.onclick = () => {
     plan.places = presets[button.dataset.preset as keyof typeof presets].map(zone => ({ zone, start: 540, end: 1080 }));
-    recalculate(); const picks = recommend(matches, plan.places); if (picks.length) plan.index = slots.indexOf(picks[0]);
+    recalculate(); if (picks.length) plan.index = slots.indexOf(picks[0]);
     persist(); render();
   });
   document.querySelector<HTMLButtonElement>('#add-city')!.onclick = () => {

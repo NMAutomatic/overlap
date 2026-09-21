@@ -136,9 +136,12 @@ export function recommend(matches: number[], places: Place[]): number[] {
     const distance = Math.abs(localParts(t, p.zone).minute - middle);
     return total + Math.min(distance, 1440 - distance);
   }, 0);
-  const sorted = [...matches].sort((a, b) => score(a) - score(b) || a - b);
+  // Zone formatting is the expensive part. Score each candidate once rather than
+  // recomputing both scores on every sort comparison.
+  const sorted = matches.map(instant => ({ instant, score: score(instant) }))
+    .sort((a, b) => a.score - b.score || a.instant - b.instant);
   const result: number[] = [];
-  for (const t of sorted) {
+  for (const { instant: t } of sorted) {
     if (result.every(other => Math.abs(other - t) >= 3_600_000)) result.push(t);
     if (result.length === 3) break;
   }
