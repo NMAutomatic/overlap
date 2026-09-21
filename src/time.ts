@@ -75,6 +75,17 @@ export function removePlanPlace(plan: Plan, removeIndex: number): Plan | null {
   if (!Number.isInteger(removeIndex) || removeIndex < 0 || removeIndex >= plan.places.length || plan.places.length === 1) return null;
   const places = plan.places.filter((_, index) => index !== removeIndex);
   if (removeIndex !== 0) return { ...plan, places };
+  return rebasePlaces(plan, places);
+}
+
+/** Change the reference city without dropping anyone or moving the meeting instant. */
+export function setPlanBase(plan: Plan, baseIndex: number): Plan | null {
+  if (!Number.isInteger(baseIndex) || baseIndex < 0 || baseIndex >= plan.places.length) return null;
+  if (baseIndex === 0) return plan;
+  return rebasePlaces(plan, [plan.places[baseIndex], ...plan.places.filter((_, index) => index !== baseIndex)]);
+}
+
+function rebasePlaces(plan: Plan, places: Place[]): Plan | null {
   const instant = daySlots(plan.date, plan.places[0].zone)[plan.index];
   if (instant === undefined) return null;
   const date = localParts(instant, places[0].zone).date;

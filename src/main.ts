@@ -6,7 +6,7 @@ import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
-import { availabilityDays, availabilityWindows, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, utcOffset } from './time';
+import { availabilityDays, availabilityWindows, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, setPlanBase, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -145,6 +145,7 @@ function draw() {
     const selectedWidth = Math.min(plan.duration / 15, slots.length - plan.index) / slots.length * 100;
     return `<article class="city-row">
       <div class="city-top"><div class="city-identity"><span class="city-symbol color-${i % 3}" aria-hidden="true">${i === 0 ? '⌂' : '↗'}</span><div><h3>${escape(city(p.zone))}${i === 0 ? '<span class="reference-badge">BASE</span>' : ''}</h3><span class="city-zone">${escape(utcOffset(instant, p.zone))} · ${escape(p.zone.split('/')[0])}</span></div></div><div class="city-clock"><strong>${local.time}</strong><span>${dateLabel(instant, p.zone)}</span></div><button class="icon-button remove" data-remove="${i}" aria-label="Remove ${escape(city(p.zone))}" ${plan.places.length === 1 ? 'disabled' : ''}>${icon('close')}</button></div>
+      ${i > 0 ? `<button class="base-action" data-base="${i}" aria-label="Use ${escape(city(p.zone))} as base city">Make base city</button>` : ''}
       ${availabilityWindows(p).map((window, w) => `<div class="city-hours"><span class="fit-label ${w === 0 && fit ? 'fits' : ''}">${w === 0 ? fit ? '● Within hours' : '○ Outside hours' : `Window ${w + 1}`}</span><label>Available <select data-hours="start" data-city="${i}" data-window="${w}" aria-label="${escape(city(p.zone))} ${w ? `window ${w + 1}` : 'availability'} start">${timeOptions(window.start)}</select></label><span>–</span><select data-hours="end" data-city="${i}" data-window="${w}" aria-label="${escape(city(p.zone))} ${w ? `window ${w + 1}` : 'availability'} end">${timeOptions(window.end)}</select>${w ? `<button class="icon-button" data-remove-window="${w}" data-city="${i}" aria-label="Remove window ${w + 1} for ${escape(city(p.zone))}">${icon('close')}</button>` : ''}</div>`).join('')}
       <div class="window-tools"><button data-add-window="${i}" aria-label="Add availability window for ${escape(city(p.zone))}" ${(p.extra?.length ?? 0) >= 2 ? 'disabled' : ''}>+ Add window</button><span>${availabilityWindows(p).some(w => w.start === w.end) ? 'Equal times mean all day.' : p.extra?.length ? 'Windows combine; gaps stay unavailable.' : 'Up to 3 windows per city.'}</span></div>
       <fieldset class="city-days"><legend>${escape(city(p.zone))} available days</legend><div class="day-buttons">${[1, 2, 3, 4, 5, 6, 0].map(day => `<button data-day="${day}" data-city="${i}" aria-label="${escape(city(p.zone))} ${dayNames[day]}" aria-pressed="${days.includes(day)}">${dayNames[day].slice(0, 2)}</button>`).join('')}</div><div class="days-caption"><span>${p.days === undefined ? 'Using default days' : days.length ? 'Custom days' : 'No available days'}</span><button data-default-days="${i}" aria-label="Use default days for ${escape(city(p.zone))}" ${p.days === undefined ? 'disabled' : ''}>Use default</button></div></fieldset>
@@ -190,6 +191,14 @@ function bindDynamic() {
     delete plan.places[Number(button.dataset.defaultDays)].days;
     recalculate(); persist(); draw();
     document.querySelector<HTMLButtonElement>(`[data-city="${button.dataset.defaultDays}"][data-day="1"]`)!.focus();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-base]').forEach(button => button.onclick = () => {
+    const updated = setPlanBase(plan, Number(button.dataset.base));
+    if (!updated) {
+      notify('This meeting falls outside the supported dates in that city. Choose another time before changing the base city.'); return;
+    }
+    plan = updated; persist(); render(); document.getElementById('date')!.focus();
+    notify(`Date and slider now follow ${city(plan.places[0].zone)}. The meeting time is unchanged.`);
   });
   document.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach(button => button.onclick = () => {
     const updated = removePlanPlace(plan, Number(button.dataset.remove));

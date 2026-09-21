@@ -61,3 +61,6 @@ input::placeholder{color:var(--muted);opacity:1}
 .window-tools button{min-height:34px;padding:4px 0;color:var(--green);text-decoration:underline;font-size:10px}
 .city-hours .icon-button{width:24px;height:28px}.city-hours .icon-button svg{width:12px;height:12px}
 @media(max-width:520px){.window-tools button{min-height:44px}.city-hours .icon-button{height:36px}}
+
+.base-action{display:block;min-height:32px;margin:-8px 0 8px;padding:0;color:var(--green);font-size:10px;text-decoration:underline}
+@media(max-width:520px){.base-action{min-height:44px;margin-bottom:0}}
