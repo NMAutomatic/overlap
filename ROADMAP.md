@@ -31,6 +31,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 
 - [ ] Automated browser coverage of sharing, city management and keyboard flows
 - [ ] Automated accessibility audit alongside manual checks
+- [x] Improve text contrast for small labels, saved-plan links and meeting end times; verify rendered colors on desktop and mobile
 - [x] Regression cases for half-hour DST transitions and Samoa’s skipped calendar date
 - [ ] A measured performance budget for six-city timelines
 

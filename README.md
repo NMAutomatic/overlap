@@ -48,6 +48,8 @@ The workflow uses Node.js 24-compatible GitHub Actions for checkout, setup and P
 
 The interface is deliberately quiet: a paper background, a shared time axis, a green availability band, and a warm orange selection. All city timelines refer to the same UTC instants. The first city defines the planning date; each row also shows its own local date so crossing midnight stays visible.
 
+A targeted manual review checked rendered text colors against the planner, paper and result-panel backgrounds, including small time-zone labels, saved-plan links and meeting end times. It used the [WCAG text contrast formula](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html); this targeted check is not a complete accessibility audit.
+
 The app uses TypeScript and browser APIs with **no runtime package dependencies**. Vite, TypeScript and Vitest are development tools.
 
 | File | Responsibility |
