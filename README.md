@@ -36,6 +36,8 @@ npm run preview
 
 `npm run check` runs the domain tests, strict TypeScript checks and a production build. GitHub Actions runs the same checks for pull requests and deploys passing `main` builds to GitHub Pages.
 
+The workflow uses Node.js 24-compatible GitHub Actions for checkout, setup and Pages publishing. The application's build and tests still run on Node.js 22, matching the supported local development environment. Pull requests only validate; publishing requires a passing `main` build or a manual workflow run.
+
 ## Design and implementation
 
 The interface is deliberately quiet: a paper background, a shared time axis, a green availability band, and a warm orange selection. All city timelines refer to the same UTC instants. The first city defines the planning date; each row also shows its own local date so crossing midnight stays visible.
