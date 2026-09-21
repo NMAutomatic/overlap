@@ -69,6 +69,19 @@ export function movePlanDate(plan: Plan, date: string): { plan: Plan; timeAdjust
   return { plan: { ...plan, date, index }, timeAdjusted: minutes[index] !== minute };
 }
 
+/** Removing the reference city changes the date/slider frame, not the meeting. */
+export function removePlanPlace(plan: Plan, removeIndex: number): Plan | null {
+  if (!Number.isInteger(removeIndex) || removeIndex < 0 || removeIndex >= plan.places.length || plan.places.length === 1) return null;
+  const places = plan.places.filter((_, index) => index !== removeIndex);
+  if (removeIndex !== 0) return { ...plan, places };
+  const instant = daySlots(plan.date, plan.places[0].zone)[plan.index];
+  if (instant === undefined) return null;
+  const date = localParts(instant, places[0].zone).date;
+  const index = daySlots(date, places[0].zone).indexOf(instant);
+  if (index < 0) return null;
+  return { ...plan, places, date, index };
+}
+
 export function available(instant: number, place: Place, weekdays = false): boolean {
   const local = localParts(instant, place.zone);
   // An overnight window belongs to the day on which it starts.

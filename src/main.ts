@@ -1,6 +1,6 @@
 import './style.css';
 import { searchZones } from './city-search';
-import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, utcOffset } from './time';
+import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -152,11 +152,11 @@ function draw() {
 function select(index: number) { plan.index = index; persist(); draw(); }
 function bindDynamic() {
   document.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach(button => button.onclick = () => {
-    const remaining = plan.places.filter((_, index) => index !== Number(button.dataset.remove));
-    if (!daySlots(plan.date, remaining[0].zone).length) {
-      notify(`This date does not exist in ${city(remaining[0].zone)}. Choose another date before changing the base city.`); return;
+    const updated = removePlanPlace(plan, Number(button.dataset.remove));
+    if (!updated) {
+      notify('This meeting falls outside the supported dates in the next base city. Choose another time before removing this city.'); return;
     }
-    plan.places = remaining; persist(); render(); document.querySelector<HTMLButtonElement>('#add-city')!.focus();
+    plan = updated; persist(); render(); document.querySelector<HTMLButtonElement>('#add-city')!.focus();
   });
   document.querySelectorAll<HTMLSelectElement>('[data-hours]').forEach(select => select.onchange = () => {
     plan.places[Number(select.dataset.city)][select.dataset.hours as 'start' | 'end'] = Number(select.value);

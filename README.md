@@ -10,6 +10,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 
 - Compare up to six time zones, with searchable cities and three starting presets. Search accepts common aliases (NYC, Kolkata/Calcutta), accents and selected Chinese city names.
 - Move to the previous day, next day or today while preserving the base city's local meeting time. If daylight saving skips that time, the planner moves forward to an available time and tells you.
+- Remove a city without changing the meeting's actual instant. Removing the base city updates the planning date and slider to the next city's local time, including across midnight and repeated DST hours.
 - Adjust each city's availability, including overnight windows and optional weekdays.
 - Explore the reference city's actual day in 15-minute steps, including 23- and 25-hour daylight-saving days.
 - Suggest meeting starts only when the **whole meeting** fits everyone's availability.

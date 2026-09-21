@@ -1,8 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, STEP, utcOffset } from './time';
+import { available, calendarFile, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, STEP, utcOffset } from './time';
 import type { Place, Plan } from './time';
 const toronto: Place = { zone: 'America/Toronto', start: 540, end: 1020 };
 const base: Plan = { date: '2026-09-14', places: [toronto], duration: 60, index: 0, weekdays: false };
+
+describe('removing cities', () => {
+  const place = (zone: string): Place => ({ zone, start: 540, end: 1080 });
+  const at = (instant: string, zones: string[]): Plan => {
+    const time = Date.parse(instant);
+    const date = localParts(time, zones[0]).date;
+    return { ...base, date, places: zones.map(place), index: daySlots(date, zones[0]).indexOf(time) };
+  };
+  it('preserves the UTC instant when the new base is on another local date', () => {
+    const original = at('2026-09-21T03:00:00Z', ['America/Toronto', 'Asia/Tokyo']);
+    const updated = removePlanPlace(original, 0)!;
+    expect(original.date).toBe('2026-09-20');
+    expect(updated.date).toBe('2026-09-21');
+    expect(daySlots(updated.date, updated.places[0].zone)[updated.index]).toBe(Date.parse('2026-09-21T03:00:00Z'));
+    expect(localParts(daySlots(updated.date, updated.places[0].zone)[updated.index], 'Asia/Tokyo').time).toBe('12:00');
+    expect(original.places).toHaveLength(2);
+  });
+  it('keeps the second occurrence of a repeated hour', () => {
+    const updated = removePlanPlace(at('2026-11-01T06:30:00Z', ['UTC', 'America/New_York']), 0)!;
+    const instant = daySlots(updated.date, 'America/New_York')[updated.index];
+    expect(instant).toBe(Date.parse('2026-11-01T06:30:00Z'));
+    expect(utcOffset(instant, 'America/New_York')).toBe('UTC-5');
+  });
+  it('uses the actual local date even when the old date was skipped in the new base', () => {
+    const updated = removePlanPlace(at('2011-12-30T12:00:00Z', ['UTC', 'Pacific/Apia']), 0)!;
+    expect(updated.date).toBe('2011-12-31');
+    expect(daySlots(updated.date, 'Pacific/Apia')[updated.index]).toBe(Date.parse('2011-12-30T12:00:00Z'));
+  });
+  it('leaves the date and selection alone when removing a non-base city', () => {
+    const original = at('2026-09-21T03:00:00Z', ['America/Toronto', 'Asia/Tokyo', 'Europe/London']);
+    expect(removePlanPlace(original, 1)).toEqual({ ...original, places: [original.places[0], original.places[2]] });
+  });
+  it('rejects empty plans, invalid indices and a new base outside supported dates', () => {
+    expect(removePlanPlace(base, 0)).toBeNull();
+    const original = at('2000-01-01T00:00:00Z', ['UTC', 'America/Los_Angeles']);
+    expect(removePlanPlace(original, 0)).toBeNull();
+    for (const index of [-1, 2, 0.5]) expect(removePlanPlace(original, index)).toBeNull();
+  });
+});
 
 describe('planning date navigation', () => {
   it('crosses leap days and year boundaries without leaving the supported range', () => {
