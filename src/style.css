@@ -13,3 +13,10 @@
 @media(max-width:1050px){
   .result-panel #text-summary{grid-column:1/-1;grid-row:7;margin-top:9px}
 }
+
+.saved-plans-trigger{display:block;margin:-8px 0 18px;color:var(--green)}
+.save-plan-fields{display:flex;gap:8px;flex-wrap:wrap}.save-plan-fields input{min-width:0;flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--white);font:inherit;width:100%}
+.saved-plan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-top:1px solid var(--line)}
+.saved-plan-row>div:first-child{min-width:0;overflow-wrap:anywhere}.saved-plan-row strong{font-size:13px}.saved-plan-row small{display:block;color:var(--muted);font-size:10px;line-height:1.7;margin-top:4px}
+.saved-plan-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}.saved-plan-actions .button{min-height:34px;padding:0 10px;font-size:11px}
+@media(max-width:520px){.save-plan-fields .button{width:100%}.saved-plan-row{align-items:flex-start;flex-direction:column}.saved-plan-actions{width:100%;justify-content:space-between}}

@@ -1,6 +1,7 @@
 import './style.css';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
+import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
 import { available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
 import type { Plan } from './time';
 
@@ -88,6 +89,7 @@ function render() {
         <section class="planner-panel" aria-label="Time zone planner">
           <div class="panel-top"><div><p class="eyebrow">01 / YOUR PEOPLE</p><h2>Around the same table.</h2></div><button id="add-city" class="button subtle" ${plan.places.length >= 6 ? 'disabled' : ''}>${icon('plus')} Add city</button></div>
           <div class="presets"><span>Try a setup</span><button data-preset="atlantic">Across the Atlantic</button><button data-preset="global">Global team</button><button data-preset="distance">Long distance</button></div>
+          <button id="saved-plans" class="text-button saved-plans-trigger">My saved plans</button>
           <div class="controls">
             <label>Planning date <input id="date" type="date" min="2000-01-01" max="2099-12-31" value="${plan.date}"></label>
             <label>Duration <select id="duration">${[15, 30, 45, 60, 90, 120].map(n => `<option value="${n}" ${plan.duration === n ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></label>
@@ -107,9 +109,16 @@ function render() {
       </div>
       <section class="bottom-notes"><div><span class="note-number">01</span><div><h3>Set your own hours.</h3><p>Early bird, night owl, or somewhere in between. Adjust each city’s availability.</p></div></div><div><span class="note-number">02</span><div><h3>Keep the whole meeting in mind.</h3><p>A match means your full meeting fits everyone’s hours, including across midnight.</p></div></div><div><span class="note-number">03</span><div><h3>Make it a date.</h3><p>Share a link to the same plan, or save a calendar file. No sign-up required.</p></div></div></section>
     </main>
-    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Weekdays follow each city’s local date; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset my saved plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
+    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Weekdays follow each city’s local date; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
     <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
     <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
+    <dialog id="saved-dialog" aria-labelledby="saved-title">
+      <form method="dialog" class="dialog-top"><h2 id="saved-title">My saved plans</h2><button class="icon-button" aria-label="Close saved plans">${icon('close')}</button></form>
+      <p class="small muted">Save up to 12 snapshots in this browser. Each keeps its date, cities, hours and meeting time.</p>
+      <form id="save-plan-form"><label class="search-label" for="plan-name">Name this plan</label><div class="save-plan-fields"><input id="plan-name" required maxlength="60" autocomplete="off" placeholder="e.g. Design team"><button class="button subtle" type="submit">Save current plan</button></div></form>
+      <p id="saved-feedback" class="small" role="status" aria-live="polite"></p><div id="saved-list"></div>
+      <p class="small muted">Names stay on this device and are not included in shared links. Clearing browser data removes these snapshots.</p>
+    </dialog>
     <div id="notice" role="status" aria-live="polite"></div>`;
   draw();
   bind();
@@ -212,6 +221,18 @@ function changeDate(date: string, focusId: string) {
 }
 
 function bind() {
+  document.getElementById('saved-plans')!.onclick = () => {
+    showSavedPlans(); document.querySelector<HTMLDialogElement>('#saved-dialog')!.showModal();
+    document.getElementById('plan-name')!.focus();
+  };
+  document.getElementById('save-plan-form')!.onsubmit = event => {
+    event.preventDefault();
+    try {
+      const input = document.querySelector<HTMLInputElement>('#plan-name')!;
+      saveNamedPlan(localStorage, input.value, plan);
+      input.value = ''; showSavedPlans(); savedFeedback('Plan saved in this browser.'); input.focus();
+    } catch (error) { savedFeedback(error instanceof Error ? error.message : 'Could not save. Browser storage may be unavailable.'); }
+  };
   document.querySelector<HTMLAnchorElement>('.skip')!.onclick = event => {
     event.preventDefault(); document.getElementById('planner')!.focus();
   };
@@ -239,8 +260,26 @@ function bind() {
   };
   document.querySelector<HTMLInputElement>('#city-search')!.oninput = event => showCities((event.target as HTMLInputElement).value);
   document.querySelector<HTMLButtonElement>('#reset')!.onclick = () => {
-    plan = defaultPlan(); persist(); history.replaceState(null, '', location.pathname); render(); notify('Saved plan reset.');
+    plan = defaultPlan(); persist(); history.replaceState(null, '', location.pathname); render(); notify('Current plan reset. Named snapshots are unchanged.');
   };
+}
+
+function savedFeedback(message: string) { document.getElementById('saved-feedback')!.textContent = message; }
+function showSavedPlans() {
+  savedFeedback(''); document.getElementById('saved-list')!.innerHTML = '';
+  try {
+    const entries = readSavedPlans(localStorage);
+    document.getElementById('saved-list')!.innerHTML = entries.length ? entries.map((entry, i) => `<div class="saved-plan-row"><div><strong>${escape(entry.name)}</strong><small>${entry.plan.date} · ${entry.plan.duration} min<br>${entry.plan.places.map(p => escape(city(p.zone))).join(' · ')}</small></div><div class="saved-plan-actions"><button class="button subtle" data-load-plan="${i}" aria-label="Load ${escape(entry.name)}">Load</button><button class="text-button" data-remove-plan="${i}" aria-label="Remove saved plan ${escape(entry.name)}">Remove</button></div></div>`).join('') : '<p class="empty">No saved plans yet.</p>';
+    document.querySelectorAll<HTMLButtonElement>('[data-load-plan]').forEach(button => button.onclick = () => {
+      const entry = entries[Number(button.dataset.loadPlan)];
+      plan = entry.plan; persist(); render(); document.getElementById('saved-plans')!.focus(); notify(`Loaded ${entry.name} · ${plan.date}.`);
+    });
+    document.querySelectorAll<HTMLButtonElement>('[data-remove-plan]').forEach(button => button.onclick = () => {
+      const entry = entries[Number(button.dataset.removePlan)];
+      try { removeNamedPlan(localStorage, entry.name); showSavedPlans(); savedFeedback(`Removed ${entry.name}. The current planner is unchanged.`); document.getElementById('plan-name')!.focus(); }
+      catch (error) { savedFeedback(error instanceof Error ? error.message : 'Could not remove this plan.'); }
+    });
+  } catch { savedFeedback('Saved plans could not be read. Browser storage may be unavailable; existing data has not been changed.'); }
 }
 
 function showCities(query: string) {
