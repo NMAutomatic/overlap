@@ -63,6 +63,8 @@ Converting an arbitrary local wall-clock time to UTC is ambiguous when clocks go
 
 The matching engine checks every 15-minute segment for the full duration, including segments after midnight. It ranks valid starts by proximity to the midpoint of each city's availability window and spaces suggestions at least an hour apart. These are convenient suggestions, not an optimization of individual preferences.
 
+Overlapping meeting windows reuse availability checks within a single calculation. The cache is discarded after each calculation, so changing hours or weekdays never reuses an older answer. Run `npm run benchmark` to compare the optimized matcher with an interval-by-interval reference for six cities and a two-hour meeting on a 25-hour day. It verifies equal results and reports median timings; it measures matching only, not browser rendering, and is not a hardware-independent performance guarantee.
+
 ## Privacy and limits
 
 There is no application backend. The current plan is kept in `localStorage`; reset it from the footer. Sharing encodes that plan in a URL fragment. The fragment is not sent in the HTTP page request, but **anyone you give the link to can read its contents**. The static hosting provider still processes normal page requests.

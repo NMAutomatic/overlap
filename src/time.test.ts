@@ -140,6 +140,42 @@ describe('availability', () => {
   });
 });
 
+describe('cached matching', () => {
+  it.each([
+    ['2026-03-08', 'America/Toronto'],
+    ['2026-11-01', 'America/Toronto'],
+    ['2026-10-04', 'Australia/Lord_Howe'],
+    ['2019-03-17', 'Antarctica/Casey'],
+  ])('matches interval-by-interval results on %s in %s', (date, zone) => {
+    const slots = daySlots(date, zone);
+    const places = [zone, 'Asia/Kathmandu', 'Europe/London', 'Pacific/Auckland', 'Asia/Tokyo', 'UTC']
+      .map(zone => ({ zone, start: 0, end: 0 }));
+    for (const duration of [15, 30, 45, 60, 90, 120]) {
+      for (const weekdays of [false, true]) {
+        for (const [start, end] of [[0, 0], [540, 1080], [1320, 360]]) {
+          const plan = { ...base, date, duration, weekdays, places: places.map(p => ({ ...p, start, end })) };
+          const expected = slots.filter(t => plan.places.every(p => meetingFits(t, p, duration, weekdays)));
+          expect(matchingSlots(slots, plan)).toEqual(expected);
+        }
+      }
+    }
+  });
+  it('does not retain cached results after availability edits', () => {
+    const slots = daySlots(base.date, toronto.zone);
+    const plan = { ...base, places: [{ ...toronto, start: 0, end: 0 }] };
+    expect(matchingSlots(slots, plan)).toHaveLength(slots.length);
+    plan.places[0].start = 540; plan.places[0].end = 555;
+    expect(matchingSlots(slots, plan)).toEqual([]);
+  });
+  it('preserves arbitrary input order and duplicate starts', () => {
+    const t = Date.parse('2026-09-21T15:00:00Z');
+    const slots = [t + 2 * STEP, t, t + STEP, t];
+    const plan = { ...base, places: [{ ...toronto, start: 0, end: 0 }] };
+    expect(matchingSlots(slots, plan)).toEqual(slots);
+    expect(matchingSlots([], plan)).toEqual([]);
+  });
+});
+
 describe('restoring local preferences', () => {
   const time = (plan: Plan) => localParts(daySlots(plan.date, plan.places[0].zone)[plan.index], plan.places[0].zone).time;
   it.each([

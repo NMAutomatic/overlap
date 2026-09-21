@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
+    "benchmark": "node --experimental-strip-types scripts/benchmark.mjs",
     "check": "npm test && npm run build"
   },
   "engines": { "node": ">=22.12.0" },

@@ -103,7 +103,21 @@ export function meetingFits(instant: number, place: Place, duration: number, wee
 }
 
 export function matchingSlots(slots: number[], plan: Plan): number[] {
-  return slots.filter(t => plan.places.every(p => meetingFits(t, p, plan.duration, plan.weekdays)));
+  // Adjacent meeting windows share most intervals. Cache only within this call so
+  // edits to availability, weekdays or time-zone rules cannot reuse stale values.
+  const checks = plan.places.map(() => new Map<number, boolean>());
+  return slots.filter(start => plan.places.every((place, i) => {
+    for (let offset = 0; offset < plan.duration; offset += 15) {
+      const instant = start + offset * 60_000;
+      let fits = checks[i].get(instant);
+      if (fits === undefined) {
+        fits = available(instant, place, plan.weekdays);
+        checks[i].set(instant, fits);
+      }
+      if (!fits) return false;
+    }
+    return true;
+  }));
 }
 
 /** Keep recommendations an hour apart, preferring each window's midpoint. */
