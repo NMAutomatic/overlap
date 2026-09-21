@@ -17,6 +17,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 - When no full match exists, review up to three partial matches with the exact minutes outside availability for each affected city. These stay labeled as partial matches; selecting one does not change anyone’s available hours.
 - Compare seven calendar dates starting from the planning date, see how many full-duration matches each has, and choose a suggested start. Dates and times follow the base city; custom workweeks and DST apply on every day.
 - Copy a link that restores the date, cities, hours, selected weekdays, duration and selected start.
+- Get an explicit warning for a broken or incomplete share link. The planner recovers saved preferences when available; otherwise it identifies the starter plan. Continuing with that plan replaces the broken link with a valid one.
 - Edit an opened shared plan and refresh without losing changes; its URL updates in place as you work.
 - Export an `.ics` calendar event with unambiguous UTC times.
 - Download a plain-text meeting proposal with start/end dates, UTC offsets and availability for every city, ready to send in a chat.

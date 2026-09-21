@@ -1,11 +1,12 @@
 import './style.css';
+import { loadInitialPlan, readPlanLink } from './plan-link';
 import { compromiseSlots } from './compromise';
 import type { Compromise } from './compromise';
 import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
-import { availabilityDays, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, parsePlan, recommend, removePlanPlace, restoreSavedPlan, utcOffset } from './time';
+import { availabilityDays, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -38,15 +39,10 @@ const timeOptions = (selected: number) => Array.from({ length: 96 }, (_, i) => {
   const label = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
   return `<option value="${minutes}" ${minutes === selected ? 'selected' : ''}>${label}</option>`;
 }).join('');
-function initialPlan(): Plan {
-  try {
-    if (location.hash && location.hash !== '#planner') return parsePlan(decodeURIComponent(location.hash.slice(1))) || defaultPlan();
-    const stored = restoreSavedPlan(localStorage.getItem(storageKey) || '');
-    if (stored) return stored;
-  } catch { /* Private browsing and malformed links should still open a usable planner. */ }
-  return defaultPlan();
-}
-let plan = initialPlan();
+const initial = loadInitialPlan(location.hash, () => localStorage.getItem(storageKey), defaultPlan);
+let plan = initial.plan;
+let linkWarning = initial.invalidLink
+  ? `The link is invalid or incomplete. ${initial.source === 'saved' ? 'Your saved preferences are' : 'The starter plan is'} shown below instead.` : '';
 let slots: number[] = [];
 let matches: number[] = [];
 let compromises: Compromise[] = [];
@@ -61,6 +57,7 @@ function persist() {
   try { localStorage.setItem(storageKey, JSON.stringify(plan)); } catch { /* Optional storage. */ }
   // Keep an opened share editable across refresh, without adding browser history entries.
   if (location.hash && location.hash !== '#planner') history.replaceState(null, '', planURL());
+  linkWarning = ''; document.querySelector('.link-warning')?.remove();
 }
 function recalculate() {
   slots = daySlots(plan.date, plan.places[0].zone);
@@ -91,6 +88,7 @@ function render() {
         <div><p class="eyebrow">LESS BACK-AND-FORTH, MORE TIME TOGETHER</p><h1>A good time.<br><span>For everyone.</span></h1></div>
         <div class="intro-aside"><div class="orbit" aria-hidden="true"><span></span><span></span><i></i></div><p>Different cities. One shared moment.<br>Find the hours that work for all of you.</p></div>
       </section>
+      ${linkWarning ? `<div class="link-warning" role="alert"><div><h2>Shared plan not loaded</h2><p>${escape(linkWarning)} Ask the sender for a new link, or continue with the plan below.</p></div><button id="use-current-plan" class="button subtle">Continue with this plan</button></div>` : ''}
       <div class="workspace">
         <section class="planner-panel" aria-label="Time zone planner">
           <div class="panel-top"><div><p class="eyebrow">01 / YOUR PEOPLE</p><h2>Around the same table.</h2></div><button id="add-city" class="button subtle" ${plan.places.length >= 6 ? 'disabled' : ''}>${icon('plus')} Add city</button></div>
@@ -277,6 +275,11 @@ function changeDate(date: string, focusId: string) {
 }
 
 function bind() {
+  const useCurrent = document.getElementById('use-current-plan');
+  if (useCurrent) useCurrent.onclick = () => {
+    persist(); history.replaceState(null, '', planURL()); render(); document.getElementById('date')!.focus();
+    notify('Current plan kept. The link now reflects this plan.');
+  };
   document.getElementById('saved-plans')!.onclick = () => {
     showSavedPlans(); document.querySelector<HTMLDialogElement>('#saved-dialog')!.showModal();
     document.getElementById('plan-name')!.focus();
@@ -348,8 +351,13 @@ function showCities(query: string) {
   });
 }
 window.addEventListener('hashchange', () => {
-  if (!location.hash || location.hash === '#planner') return;
-  try { const shared = parsePlan(decodeURIComponent(location.hash.slice(1))); if (shared) { plan = shared; render(); notify('Shared plan opened.'); } else notify('This plan link is invalid. Your current plan is unchanged.'); }
-  catch { notify('This plan link is invalid. Your current plan is unchanged.'); }
+  const shared = readPlanLink(location.hash);
+  if (shared.kind === 'none') return;
+  if (shared.kind === 'valid') {
+    plan = shared.plan; linkWarning = ''; render(); notify('Shared plan opened.');
+  } else {
+    linkWarning = 'The link is invalid or incomplete. Your current plan is unchanged.';
+    render();
+  }
 });
 render();
