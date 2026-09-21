@@ -55,7 +55,7 @@ The app uses TypeScript and browser APIs with **no runtime package dependencies*
 
 ### Why enumerate instants?
 
-Converting an arbitrary local wall-clock time to UTC is ambiguous when clocks go backward, and can be impossible when they go forward. Overlap starts with UTC instants, then uses `Intl.DateTimeFormat` to select those belonging to the reference city's date. A repeated hour stays represented twice, with UTC offsets distinguishing the two occurrences; a skipped hour never appears. Entire skipped local dates are rejected, including in shared links. Calendar exports preserve the selected instant.
+Converting an arbitrary local wall-clock time to UTC is ambiguous when clocks go backward, and can be impossible when they go forward. Overlap starts with UTC instants, then uses `Intl.DateTimeFormat` to select those belonging to the reference city's date. A repeated hour stays represented twice, with UTC offsets distinguishing the two occurrences; a skipped hour never appears. Entire skipped local dates are rejected, including in shared links. Shared selections must exist in the actual local day: out-of-range selections are rejected rather than silently moved, while valid selections on unusually long days remain shareable. Calendar exports preserve the selected instant.
 
 The matching engine checks every 15-minute segment for the full duration, including segments after midnight. It ranks valid starts by proximity to the midpoint of each city's availability window and spaces suggestions at least an hour apart. These are convenient suggestions, not an optimization of individual preferences.
 

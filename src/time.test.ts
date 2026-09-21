@@ -141,6 +141,22 @@ describe('availability', () => {
 });
 
 describe('portable plans', () => {
+  it.each([
+    ['2026-09-14', 'America/Toronto', 96],
+    ['2026-03-08', 'America/Toronto', 92],
+    ['2026-11-01', 'America/Toronto', 100],
+    ['2026-10-04', 'Australia/Lord_Howe', 94],
+    ['2026-04-05', 'Australia/Lord_Howe', 98],
+    ['2019-03-17', 'Antarctica/Casey', 108],
+  ])('validates the selection against the actual day on %s in %s', (date, zone, count) => {
+    const slots = daySlots(date, zone);
+    expect(slots).toHaveLength(count);
+    const plan = { ...base, date, places: [{ ...toronto, zone }], index: count - 1 };
+    expect(parsePlan(JSON.stringify(plan))).toEqual(plan);
+    expect(parsePlan(JSON.stringify({ ...plan, index: 0 }))).not.toBeNull();
+    expect(parsePlan(JSON.stringify({ ...plan, index: count }))).toBeNull();
+    expect(parsePlan(JSON.stringify({ ...plan, index: 1_000_000 }))).toBeNull();
+  });
   it('rejects a skipped local date without rejecting adjacent dates', () => {
     const apia = { ...base, places: [{ ...toronto, zone: 'Pacific/Apia' }] };
     expect(daySlots('2011-12-30', 'Pacific/Apia')).toEqual([]);

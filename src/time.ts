@@ -137,7 +137,7 @@ export function parsePlan(raw: string): Plan | null {
     if (raw.length > 5000) return null;
     const p = JSON.parse(raw) as Plan;
     if (!p || !validDate(p.date) || ![15, 30, 45, 60, 90, 120].includes(p.duration)
-      || !Number.isInteger(p.index) || p.index < 0 || p.index > 103 || typeof p.weekdays !== 'boolean'
+      || !Number.isInteger(p.index) || p.index < 0 || typeof p.weekdays !== 'boolean'
       || !Array.isArray(p.places) || p.places.length < 1 || p.places.length > 6) return null;
     const zones = new Set<string>();
     for (const place of p.places) {
@@ -146,7 +146,7 @@ export function parsePlan(raw: string): Plan | null {
       new Intl.DateTimeFormat('en', { timeZone: place.zone }).format();
       zones.add(place.zone);
     }
-    if (daySlots(p.date, p.places[0].zone).length === 0) return null;
+    if (p.index >= daySlots(p.date, p.places[0].zone).length) return null;
     return { date: p.date, duration: p.duration, index: p.index, weekdays: p.weekdays,
       places: p.places.map(({ zone, start, end }) => ({ zone, start, end })) };
   } catch { return null; }
