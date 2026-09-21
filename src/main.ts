@@ -6,7 +6,7 @@ import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
-import { availabilityDays, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, utcOffset } from './time';
+import { availabilityDays, availabilityWindows, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -116,7 +116,7 @@ function render() {
       </div>
       <section class="bottom-notes"><div><span class="note-number">01</span><div><h3>Set your own hours.</h3><p>Early bird, night owl, or somewhere in between. Adjust each city’s availability.</p></div></div><div><span class="note-number">02</span><div><h3>Keep the whole meeting in mind.</h3><p>A match means your full meeting fits everyone’s hours, including across midnight.</p></div></div><div><span class="note-number">03</span><div><h3>Make it a date.</h3><p>Share a link to the same plan, or save a calendar file. No sign-up required.</p></div></div></section>
     </main>
-    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability is a daily window; equal start and end means all day. Selected days follow each city’s local date; custom city days override the default; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
+    <footer class="shell footer"><span>overlap <span class="muted">/ a little more in sync.</span></span><details><summary>How it works & privacy</summary><p>Times use your browser’s IANA time-zone database, including daylight saving rules. The planner checks 15-minute intervals. Availability combines up to three daily windows per city; gaps stay unavailable and equal start and end means all day. Selected days follow each city’s local date; custom city days override the default; overnight hours belong to the day they start. Calendar files use exact UTC instants.</p><p>Your plan is saved on this device. A shared link includes your cities and availability in its URL fragment. Anyone with that link can read it. There are no accounts, analytics, external fonts or application servers; the static hosting provider handles normal page requests. Browser time-zone rules may need updates when governments change their clocks.</p><button id="reset" class="text-button">Reset current plan</button></details><a href="https://github.com/NMAutomatic/overlap/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">What’s next ↗</a></footer>
     <dialog id="city-dialog"><form method="dialog" class="dialog-top"><h2>Add a city</h2><button class="icon-button" aria-label="Close city picker">${icon('close')}</button></form><label class="search-label" for="city-search">Search city or time zone</label><input id="city-search" type="search" placeholder="Try NYC, Kolkata, 东京…" autocomplete="off"><p class="muted small">One time zone per city · up to six cities</p><div id="city-results"></div></dialog>
     <dialog id="share-dialog"><form method="dialog" class="dialog-top"><h2>Your plan link</h2><button class="icon-button" aria-label="Close share link">${icon('close')}</button></form><p>Copy this link to share the same date, cities and meeting time.</p><input id="share-value" readonly aria-label="Link to your plan"></dialog>
     <dialog id="compare-dialog" aria-labelledby="compare-title">
@@ -145,7 +145,8 @@ function draw() {
     const selectedWidth = Math.min(plan.duration / 15, slots.length - plan.index) / slots.length * 100;
     return `<article class="city-row">
       <div class="city-top"><div class="city-identity"><span class="city-symbol color-${i % 3}" aria-hidden="true">${i === 0 ? '⌂' : '↗'}</span><div><h3>${escape(city(p.zone))}${i === 0 ? '<span class="reference-badge">BASE</span>' : ''}</h3><span class="city-zone">${escape(utcOffset(instant, p.zone))} · ${escape(p.zone.split('/')[0])}</span></div></div><div class="city-clock"><strong>${local.time}</strong><span>${dateLabel(instant, p.zone)}</span></div><button class="icon-button remove" data-remove="${i}" aria-label="Remove ${escape(city(p.zone))}" ${plan.places.length === 1 ? 'disabled' : ''}>${icon('close')}</button></div>
-      <div class="city-hours"><span class="fit-label ${fit ? 'fits' : ''}">${fit ? '● Within hours' : '○ Outside hours'}</span><label>Available <select data-hours="start" data-city="${i}" aria-label="${escape(city(p.zone))} availability start">${timeOptions(p.start)}</select></label><span>–</span><select data-hours="end" data-city="${i}" aria-label="${escape(city(p.zone))} availability end">${timeOptions(p.end)}</select></div>
+      ${availabilityWindows(p).map((window, w) => `<div class="city-hours"><span class="fit-label ${w === 0 && fit ? 'fits' : ''}">${w === 0 ? fit ? '● Within hours' : '○ Outside hours' : `Window ${w + 1}`}</span><label>Available <select data-hours="start" data-city="${i}" data-window="${w}" aria-label="${escape(city(p.zone))} ${w ? `window ${w + 1}` : 'availability'} start">${timeOptions(window.start)}</select></label><span>–</span><select data-hours="end" data-city="${i}" data-window="${w}" aria-label="${escape(city(p.zone))} ${w ? `window ${w + 1}` : 'availability'} end">${timeOptions(window.end)}</select>${w ? `<button class="icon-button" data-remove-window="${w}" data-city="${i}" aria-label="Remove window ${w + 1} for ${escape(city(p.zone))}">${icon('close')}</button>` : ''}</div>`).join('')}
+      <div class="window-tools"><button data-add-window="${i}" aria-label="Add availability window for ${escape(city(p.zone))}" ${(p.extra?.length ?? 0) >= 2 ? 'disabled' : ''}>+ Add window</button><span>${availabilityWindows(p).some(w => w.start === w.end) ? 'Equal times mean all day.' : p.extra?.length ? 'Windows combine; gaps stay unavailable.' : 'Up to 3 windows per city.'}</span></div>
       <fieldset class="city-days"><legend>${escape(city(p.zone))} available days</legend><div class="day-buttons">${[1, 2, 3, 4, 5, 6, 0].map(day => `<button data-day="${day}" data-city="${i}" aria-label="${escape(city(p.zone))} ${dayNames[day]}" aria-pressed="${days.includes(day)}">${dayNames[day].slice(0, 2)}</button>`).join('')}</div><div class="days-caption"><span>${p.days === undefined ? 'Using default days' : days.length ? 'Custom days' : 'No available days'}</span><button data-default-days="${i}" aria-label="Use default days for ${escape(city(p.zone))}" ${p.days === undefined ? 'disabled' : ''}>Use default</button></div></fieldset>
       <button class="timeline" data-timeline="${i}" aria-label="Select a time on ${escape(city(p.zone))} timeline" style="--count:${slots.length}">${slots.map(t => `<span class="tick ${available(t, p, plan.weekdays) ? 'open' : ''}" aria-hidden="true"></span>`).join('')}<span class="selection" style="left:${plan.index / slots.length * 100}%;width:${selectedWidth}%" aria-hidden="true"></span></button>
       <div class="hour-labels" aria-hidden="true">${[0, .25, .5, .75].map(f => `<span>${localParts(slots[Math.floor(slots.length * f)], p.zone).time}</span>`).join('')}<span>${localParts(slots.at(-1)! + 15 * 60_000, p.zone).time}</span></div>
@@ -197,10 +198,27 @@ function bindDynamic() {
     }
     plan = updated; persist(); render(); document.querySelector<HTMLButtonElement>('#add-city')!.focus();
   });
-  document.querySelectorAll<HTMLSelectElement>('[data-hours]').forEach(select => select.onchange = () => {
-    plan.places[Number(select.dataset.city)][select.dataset.hours as 'start' | 'end'] = Number(select.value);
+  document.querySelectorAll<HTMLButtonElement>('[data-add-window]').forEach(button => button.onclick = () => {
+    const place = plan.places[Number(button.dataset.addWindow)];
+    if ((place.extra?.length ?? 0) >= 2) return;
+    const start = ((place.extra?.at(-1)?.end ?? place.end) + 60) % 1440;
+    (place.extra ??= []).push({ start, end: (start + 120) % 1440 });
     recalculate(); persist(); draw();
-    document.querySelector<HTMLSelectElement>(`[data-city="${select.dataset.city}"][data-hours="${select.dataset.hours}"]`)!.focus();
+    document.querySelector<HTMLSelectElement>(`[data-city="${button.dataset.addWindow}"][data-window="${place.extra.length}"][data-hours="start"]`)!.focus();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-remove-window]').forEach(button => button.onclick = () => {
+    const place = plan.places[Number(button.dataset.city)];
+    place.extra?.splice(Number(button.dataset.removeWindow) - 1, 1);
+    if (!place.extra?.length) delete place.extra;
+    recalculate(); persist(); draw();
+    document.querySelector<HTMLButtonElement>(`[data-add-window="${button.dataset.city}"]`)!.focus();
+  });
+  document.querySelectorAll<HTMLSelectElement>('[data-hours]').forEach(select => select.onchange = () => {
+    const place = plan.places[Number(select.dataset.city)];
+    const window = Number(select.dataset.window) === 0 ? place : place.extra![Number(select.dataset.window) - 1];
+    window[select.dataset.hours as 'start' | 'end'] = Number(select.value);
+    recalculate(); persist(); draw();
+    document.querySelector<HTMLSelectElement>(`[data-city="${select.dataset.city}"][data-hours="${select.dataset.hours}"][data-window="${select.dataset.window}"]`)!.focus();
   });
   document.querySelectorAll<HTMLButtonElement>('[data-timeline]').forEach(button => button.onclick = event => {
     const rect = button.getBoundingClientRect();

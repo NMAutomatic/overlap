@@ -1,5 +1,6 @@
 export const STEP = 15 * 60_000;
-export type Place = { zone: string; start: number; end: number; days?: number[] };
+export type AvailabilityWindow = { start: number; end: number };
+export type Place = AvailabilityWindow & { zone: string; days?: number[]; extra?: AvailabilityWindow[] };
 export type Plan = { date: string; places: Place[]; duration: number; index: number; weekdays: boolean };
 const cache = new Map<string, Intl.DateTimeFormat>();
 
@@ -90,17 +91,23 @@ export function availabilityDays(place: Place, weekdays = false): readonly numbe
   return place.days ?? (weekdays ? workingDays : everyDay);
 }
 
+export function availabilityWindows(place: Place): AvailabilityWindow[] {
+  return [place, ...(place.extra ?? [])];
+}
+
 export function available(instant: number, place: Place, weekdays = false): boolean {
   const local = localParts(instant, place.zone);
-  // An overnight window belongs to the day on which it starts.
-  const overnight = place.start > place.end;
-  const ownerDay = overnight && local.minute < place.end
-    ? new Date(Date.parse(`${local.date}T12:00:00Z`) - 86_400_000).getUTCDay()
-    : new Date(`${local.date}T12:00:00Z`).getUTCDay();
-  if (!availabilityDays(place, weekdays).includes(ownerDay)) return false;
-  if (place.start === place.end) return true;
-  return overnight ? local.minute >= place.start || local.minute < place.end
-    : local.minute >= place.start && local.minute < place.end;
+  const day = new Date(`${local.date}T12:00:00Z`).getUTCDay();
+  const days = availabilityDays(place, weekdays);
+  return availabilityWindows(place).some(window => {
+    const overnight = window.start > window.end;
+    // Each overnight window belongs to the local calendar day on which it starts.
+    const ownerDay = overnight && local.minute < window.end ? (day + 6) % 7 : day;
+    if (!days.includes(ownerDay)) return false;
+    if (window.start === window.end) return true;
+    return overnight ? local.minute >= window.start || local.minute < window.end
+      : local.minute >= window.start && local.minute < window.end;
+  });
 }
 
 export function meetingFits(instant: number, place: Place, duration: number, weekdays = false): boolean {
@@ -131,10 +138,13 @@ export function matchingSlots(slots: number[], plan: Plan): number[] {
 /** Keep recommendations an hour apart, preferring each window's midpoint. */
 export function recommend(matches: number[], places: Place[]): number[] {
   const score = (t: number) => places.reduce((total, p) => {
-    const length = (p.end - p.start + 1440) % 1440 || 1440;
-    const middle = (p.start + length / 2) % 1440;
-    const distance = Math.abs(localParts(t, p.zone).minute - middle);
-    return total + Math.min(distance, 1440 - distance);
+    const minute = localParts(t, p.zone).minute;
+    return total + Math.min(...availabilityWindows(p).map(window => {
+      const length = (window.end - window.start + 1440) % 1440 || 1440;
+      const middle = (window.start + length / 2) % 1440;
+      const distance = Math.abs(minute - middle);
+      return Math.min(distance, 1440 - distance);
+    }));
   }, 0);
   // Zone formatting is the expensive part. Score each candidate once rather than
   // recomputing both scores on every sort comparison.
@@ -167,7 +177,11 @@ export function parsePlan(raw: string): Plan | null {
     const zones = new Set<string>();
     for (const place of p.places) {
       if (!place || typeof place.zone !== 'string' || place.zone.length > 80 || zones.has(place.zone)) return null;
-      for (const v of [place.start, place.end]) if (!Number.isInteger(v) || v < 0 || v >= 1440 || v % 15 !== 0) return null;
+      if (place.extra !== undefined && (!Array.isArray(place.extra) || place.extra.length > 2)) return null;
+      for (const window of availabilityWindows(place)) {
+        if (!window || typeof window !== 'object') return null;
+        for (const v of [window.start, window.end]) if (!Number.isInteger(v) || v < 0 || v >= 1440 || v % 15 !== 0) return null;
+      }
       if (place.days !== undefined && (!Array.isArray(place.days) || place.days.length > 7
         || new Set(place.days).size !== place.days.length
         || place.days.some(day => !Number.isInteger(day) || day < 0 || day > 6))) return null;
@@ -176,7 +190,9 @@ export function parsePlan(raw: string): Plan | null {
     }
     if (p.index >= daySlots(p.date, p.places[0].zone).length) return null;
     return { date: p.date, duration: p.duration, index: p.index, weekdays: p.weekdays,
-      places: p.places.map(({ zone, start, end, days }) => ({ zone, start, end, ...(days === undefined ? {} : { days: [...days].sort() }) })) };
+      places: p.places.map(({ zone, start, end, days, extra }) => ({ zone, start, end,
+        ...(days === undefined ? {} : { days: [...days].sort() }),
+        ...(extra?.length ? { extra: extra.map(({ start, end }) => ({ start, end })) } : {}) })) };
   } catch { return null; }
 }
 
