@@ -24,7 +24,9 @@ function planPath(plan: SharedPlan) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('overlap-language-v1', 'en'));
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('overlap-language-v1')) localStorage.setItem('overlap-language-v1', 'en');
+  });
 });
 
 test('copies a restorable share link and keeps edits after refresh', async ({ page }) => {
@@ -35,7 +37,8 @@ test('copies a restorable share link and keeps edits after refresh', async ({ pa
   await expect(page.locator('#notice')).toContainText('Plan link copied');
 
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toBe(page.url());
+  const copiedPlan = JSON.parse(decodeURIComponent(new URL(copied).hash.slice(1)));
+  expect(copiedPlan).toEqual(sharedPlan);
 
   await page.getByLabel('Duration').selectOption('90');
   await expect(page.getByLabel('Duration')).toHaveValue('90');
@@ -61,7 +64,7 @@ test('adds, rebases and removes cities without changing the meeting', async ({ p
   await expect(page.locator('.meeting-ticket')).toContainText('19:00 – 20:00');
 
   await page.getByRole('button', { name: 'Use Tokyo as base city' }).press('Enter');
-  await expect(page.getByLabel('Planning date')).toBeFocused();
+  await expect(page.locator('#date')).toBeFocused();
   await expect(page.locator('.city-row').first().locator('h3')).toContainText('Tokyo');
   await expect(page.locator('.city-row').first().locator('h3')).toContainText('BASE');
   await expect(page.locator('.meeting-ticket')).toContainText('10:00 – 11:00');
