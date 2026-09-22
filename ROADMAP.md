@@ -36,7 +36,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 - [ ] Automated accessibility audit alongside manual checks
 - [x] Improve text contrast for small labels, saved-plan links and meeting end times; verify rendered colors on desktop and mobile
 - [x] Regression cases for half-hour DST transitions and Samoa’s skipped calendar date
-- [ ] A measured performance budget for six-city timelines
+- [x] A measured CI performance budget for six-city matching and ranking with three daily windows on a 25-hour day
 
 ## Out of scope for now
 

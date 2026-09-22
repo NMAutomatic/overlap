@@ -44,7 +44,7 @@ npm run check
 npm run preview
 ```
 
-`npm run check` runs the domain tests, strict TypeScript checks and a production build. GitHub Actions runs the same checks for pull requests and deploys passing `main` builds to GitHub Pages.
+`npm run check` runs the domain tests, strict TypeScript checks, a production build and the six-city performance budget. GitHub Actions runs the same checks for pull requests and deploys passing `main` builds to GitHub Pages.
 
 The workflow uses Node.js 24-compatible GitHub Actions for checkout, setup and Pages publishing. The application's build and tests still run on Node.js 22, matching the supported local development environment. Pull requests only validate; publishing requires a passing `main` build or a manual workflow run.
 
@@ -73,7 +73,7 @@ The matching engine checks every 15-minute segment for the full duration, includ
 
 If there is no full match on the selected date, partial suggestions first maximize the number of cities whose whole meeting fits, then minimize the largest per-city time outside availability, then the total outside minutes. Ties favor the earlier UTC instant, and suggestions are spaced at least 30 minutes apart. Each cost counts 15-minute intervals using the city’s local hours and selected weekdays. A candidate must fit at least one city fully; no partial suggestions appear if every city would be outside its hours. This is an explicit heuristic, not a claim about participants’ preferences or consent.
 
-Overlapping meeting windows reuse availability checks within a single calculation. The cache is discarded after each calculation, so changing hours or weekdays never reuses an older answer. Recommendation scores are computed once per candidate. Moving the selected-time slider reuses the recommendations until the date, cities, hours, days or duration change. Run `npm run benchmark` to compare matching and ranking against their previous implementations for six cities on a 25-hour day, including result-equivalence checks across DST and overnight fixtures. It reports median timings for computation only, not browser rendering, and is not a hardware-independent performance guarantee.
+Overlapping meeting windows reuse availability checks within a single calculation. The cache is discarded after each calculation, so changing hours or weekdays never reuses an older answer. Recommendation scores are computed once per candidate. Moving the selected-time slider reuses the recommendations until the date, cities, hours, days or duration change. `npm run benchmark` compares matching and ranking against their previous implementations for six cities with three daily windows on a 25-hour day, including result-equivalence checks across DST and overnight fixtures. The CI budget allows up to 50 ms each for median matching and ranking time, more than ten times the current local baseline, so it catches large regressions without depending on tiny timing differences. It measures scheduling computation only, not DOM rendering, and is not a hardware-independent speed claim.
 
 ## Privacy and limits
 
