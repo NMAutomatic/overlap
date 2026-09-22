@@ -47,7 +47,7 @@ npm run test:browser
 npm run preview
 ```
 
-`npm run check` runs the domain tests, strict TypeScript checks, a production build and the six-city performance budget. `npm run test:browser` starts that production build and exercises sharing, city management and keyboard focus in Chromium. GitHub Actions runs both commands for pull requests and deploys passing `main` builds to GitHub Pages.
+`npm run check` runs the domain tests, strict TypeScript checks, a production build and the six-city performance budget. `npm run test:browser` starts that production build, exercises sharing, city management and keyboard focus in Chromium, and audits the English and Chinese planner plus its primary dialogs against detectable WCAG A/AA violations. GitHub Actions runs both commands for pull requests and deploys passing `main` builds to GitHub Pages.
 
 The workflow uses Node.js 24-compatible GitHub Actions for checkout, setup and Pages publishing. The application's build and tests still run on Node.js 22, matching the supported local development environment. Pull requests only validate; publishing requires a passing `main` build or a manual workflow run.
 
@@ -55,7 +55,7 @@ The workflow uses Node.js 24-compatible GitHub Actions for checkout, setup and P
 
 The interface is deliberately quiet: a paper background, a shared time axis, a green availability band, and a warm orange selection. All city timelines refer to the same UTC instants. The first city defines the planning date; each row also shows its own local date so crossing midnight stays visible.
 
-A targeted manual review checked rendered text colors against the planner, paper and result-panel backgrounds, including small time-zone labels, saved-plan links and meeting end times. It used the [WCAG text contrast formula](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html); this targeted check is not a complete accessibility audit.
+A targeted manual review checked rendered text colors against the planner, paper and result-panel backgrounds, including small time-zone labels, saved-plan links and meeting end times. It used the [WCAG text contrast formula](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Automated axe-core scans now cover the rendered English and Chinese planner plus its primary dialogs in Chromium. Automated checks cannot prove full accessibility, so keyboard and screen-reader behavior still need human review.
 
 The app uses TypeScript and browser APIs with **no runtime package dependencies**. Vite, TypeScript and Vitest are development tools.
 
@@ -69,6 +69,7 @@ The app uses TypeScript and browser APIs with **no runtime package dependencies*
 | `src/main.ts` | UI state, local persistence and browser interactions |
 | `src/style.css` | Responsive layout and accessible focus states |
 | `e2e/planner.spec.ts` | Browser regression coverage for shared links, city changes and keyboard focus |
+| `e2e/accessibility.spec.ts` | Automated WCAG A/AA checks for the planner and primary dialogs |
 
 ### Why enumerate instants?
 

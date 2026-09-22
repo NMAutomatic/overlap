@@ -33,7 +33,7 @@ The goal is a reliable, approachable tool for finding a shared time. This is a d
 - [x] Name every dialog for assistive technology and preserve keyboard focus when adding cities, switching presets and resetting
 
 - [x] Automated Chromium coverage of sharing, city management and keyboard focus flows in CI
-- [ ] Automated accessibility audit alongside manual checks
+- [x] Automated WCAG A/AA audits of the planner and primary dialogs alongside manual checks
 - [x] Improve text contrast for small labels, saved-plan links and meeting end times; verify rendered colors on desktop and mobile
 - [x] Regression cases for half-hour DST transitions and Samoa’s skipped calendar date
 - [x] A measured CI performance budget for six-city matching and ranking with three daily windows on a 25-hour day
