@@ -9,6 +9,7 @@ A small, browser-local meeting planner for people in different time zones. Put c
 ## What it does
 
 - Compare up to six time zones, with searchable cities and three starting presets. Search accepts common aliases (NYC, Kolkata/Calcutta), accents and selected Chinese city names.
+- Switch the complete interface between English and Simplified Chinese. The first visit follows the browser language; later visits remember the choice on that device without adding it to shared plan links.
 - Move to the previous day, next day or today while preserving the base city's local meeting time. If daylight saving skips that time, the planner moves forward to an available time and tells you.
 - Make any city the base for the planning date and slider without removing other cities or losing their hours. The meeting stays at the same UTC instant, including during repeated DST hours; the local planning date adjusts automatically.
 - Remove a city without changing the meeting's actual instant. Removing the base city updates the planning date and slider to the next city's local time, including across midnight and repeated DST hours.
@@ -62,6 +63,7 @@ The app uses TypeScript and browser APIs with **no runtime package dependencies*
 | `src/time.test.ts` | Regression cases for DST, date-line crossings, fractional offsets, overnight hours, validation and calendar output |
 | `src/compare-days.ts` | Seven-date comparison with full-duration matches and exact suggested instants |
 | `src/city-search.ts` | Ranked city, alias and IANA path search using browser-supported zone IDs |
+| `src/i18n.ts` | English/Chinese interface preference and translations for static, dynamic and accessible copy |
 | `src/main.ts` | UI state, local persistence and browser interactions |
 | `src/style.css` | Responsive layout and accessible focus states |
 
@@ -77,7 +79,7 @@ Overlapping meeting windows reuse availability checks within a single calculatio
 
 ## Privacy and limits
 
-There is no application backend. The current plan is kept in `localStorage`; reset it from the footer. Sharing encodes that plan in a URL fragment. The fragment is not sent in the HTTP page request, but **anyone you give the link to can read its contents**. The static hosting provider still processes normal page requests.
+There is no application backend. The current plan and language preference are kept separately in `localStorage`; reset the plan from the footer or change language in the header. The language preference stays on the device and is not added to shared links. Sharing encodes the plan in a URL fragment. The fragment is not sent in the HTTP page request, but **anyone you give the link to can read its contents**. The static hosting provider still processes normal page requests.
 
 Availability is the union of up to three repeating daily windows per city, not a connected calendar. Additional windows are saved locally and included in shared links; older single-window plans still work. Equal start and end times mean all-day availability. Select available days separately for each city; selecting no days means that city is unavailable all week. For overnight windows, the weekday belongs to the day the window starts. Custom city days are included in shared links and named snapshots; older plans without custom days retain their original default behavior. Holidays, personal calendar conflicts, different hours on different weekdays and live collaboration are not yet supported.
 

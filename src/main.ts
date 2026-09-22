@@ -6,11 +6,14 @@ import { compareDays } from './compare-days';
 import { searchZones } from './city-search';
 import { meetingSummary } from './meeting-summary';
 import { readSavedPlans, removeNamedPlan, saveNamedPlan } from './saved-plans';
+import { readLanguage, saveLanguage, translateText } from './i18n';
+import type { Language } from './i18n';
 import { availabilityDays, availabilityWindows, available, calendarFile, city, daySlots, localParts, matchingSlots, meetingFits, movePlanDate, neighboringDate, recommend, removePlanPlace, setPlanBase, utcOffset } from './time';
 import type { Plan } from './time';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const storageKey = 'overlap-plan-v1';
+let language: Language = readLanguage(localStorage, navigator.language);
 const presets = {
   atlantic: ['America/Toronto', 'Europe/London', 'Europe/Berlin'],
   global: ['America/Los_Angeles', 'Europe/London', 'Asia/Singapore'],
@@ -34,6 +37,27 @@ const icon = (name: string) => {
   return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.arrow}</svg>`;
 };
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function localizePage() {
+  document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+  document.title = language === 'zh' ? 'Overlap — 找到所有人都合适的时间' : 'Overlap — A good time for everyone';
+  if (language === 'en') return;
+  const walker = document.createTreeWalker(app, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.parentElement?.closest('[data-no-translate]')) continue;
+    const raw = node.nodeValue ?? '';
+    const value = raw.trim();
+    if (!value) continue;
+    if (node.parentElement?.tagName === 'OPTION' && /^\d{2}:\d{2}$/.test(value)) continue;
+    const translated = translateText(language, value);
+    if (translated !== value) node.nodeValue = raw.replace(value, translated);
+  }
+  app.querySelectorAll<HTMLElement>('[aria-label], [placeholder]').forEach(element => {
+    for (const attribute of ['aria-label', 'placeholder']) {
+      const value = element.getAttribute(attribute);
+      if (value) element.setAttribute(attribute, translateText(language, value));
+    }
+  });
+}
 const timeOptions = (selected: number) => Array.from({ length: 96 }, (_, i) => {
   const minutes = i * 15;
   const label = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
@@ -69,13 +93,13 @@ function recalculate() {
 }
 function notify(message: string) {
   const toast = document.querySelector<HTMLElement>('#notice')!;
-  toast.textContent = message;
+  toast.textContent = translateText(language, message);
   toast.classList.add('visible');
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => toast.classList.remove('visible'), 4000);
 }
 function dateLabel(instant: number, zone: string) {
-  return new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short', day: 'numeric', month: 'short' }).format(instant);
+  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-GB', { timeZone: zone, weekday: 'short', day: 'numeric', month: 'short' }).format(instant);
 }
 function render() {
   recalculate();
@@ -83,7 +107,7 @@ function render() {
     <a class="skip" href="#planner">Skip to planner</a>
     <header class="header shell">
       <a href="${import.meta.env.BASE_URL}" class="brand" aria-label="Overlap home"><span class="brand-mark" aria-hidden="true"></span>overlap</a>
-      <div class="header-right"><span class="local-note"><i></i> Works in your browser</span><a href="https://github.com/NMAutomatic/overlap" target="_blank" rel="noopener noreferrer">Source code ↗</a></div>
+      <div class="header-right"><span class="local-note"><i></i> Works in your browser</span><button id="language-toggle" class="language-toggle" aria-label="${language === 'en' ? 'Chinese interface' : 'English interface'}">${language === 'en' ? '中文' : 'EN'}</button><a href="https://github.com/NMAutomatic/overlap" target="_blank" rel="noopener noreferrer">Source code ↗</a></div>
     </header>
     <main class="shell" id="planner" tabindex="-1">
       <section class="intro">
@@ -174,6 +198,7 @@ function draw() {
   slider.style.setProperty('--progress', `${plan.index / (slots.length - 1) * 100}%`);
   document.querySelector('#slider-time')!.textContent = `${localParts(instant, plan.places[0].zone).time} ${utcOffset(instant, plan.places[0].zone)} · ${city(plan.places[0].zone)}`;
   bindDynamic();
+  localizePage();
 }
 
 function select(index: number) { plan.index = index; persist(); draw(); }
@@ -270,7 +295,7 @@ function showDayComparison() {
   const zone = plan.places[0].zone;
   document.getElementById('compare-description')!.textContent = `${days.length} dates starting ${plan.date}, in ${city(zone)}. Each possible start fits the full ${plan.duration} minutes for every city. Times below follow ${city(zone)}.`;
   document.getElementById('compared-days')!.innerHTML = days.map((day, i) => {
-    const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day.date}T12:00:00Z`));
+    const weekday = new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-GB', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day.date}T12:00:00Z`));
     const suggestion = day.suggested;
     const time = suggestion ? `${localParts(suggestion.instant, zone).time} ${utcOffset(suggestion.instant, zone)}` : '';
     return `<li><button data-compare-day="${i}" ${suggestion ? '' : 'disabled'} ${suggestion ? `aria-label="Choose ${day.date} at ${escape(time)}"` : ''}><span><strong>${weekday} · ${day.date}</strong><small>${day.exists ? `${day.starts} possible starts` : 'Date does not exist in this city'}</small></span><span class="compared-start">${suggestion ? `Choose ${escape(time)} ${icon('arrow')}` : 'No match'}</span></button></li>`;
@@ -285,6 +310,7 @@ function showDayComparison() {
     persist(); render(); document.getElementById('compare-days')!.focus();
     notify(`Selected ${day.date} · ${localParts(day.suggested.instant, zone).time} ${utcOffset(day.suggested.instant, zone)}. Fits every city.`);
   });
+  localizePage();
   document.querySelector<HTMLDialogElement>('#compare-dialog')!.showModal();
 }
 
@@ -303,6 +329,10 @@ function changeDate(date: string, focusId: string) {
 }
 
 function bind() {
+  document.getElementById('language-toggle')!.onclick = () => {
+    language = language === 'en' ? 'zh' : 'en';
+    saveLanguage(localStorage, language); render(); document.getElementById('language-toggle')!.focus();
+  };
   const useCurrent = document.getElementById('use-current-plan');
   if (useCurrent) useCurrent.onclick = () => {
     persist(); history.replaceState(null, '', planURL()); render(); document.getElementById('date')!.focus();
@@ -352,12 +382,12 @@ function bind() {
   };
 }
 
-function savedFeedback(message: string) { document.getElementById('saved-feedback')!.textContent = message; }
+function savedFeedback(message: string) { document.getElementById('saved-feedback')!.textContent = translateText(language, message); }
 function showSavedPlans() {
   savedFeedback(''); document.getElementById('saved-list')!.innerHTML = '';
   try {
     const entries = readSavedPlans(localStorage);
-    document.getElementById('saved-list')!.innerHTML = entries.length ? entries.map((entry, i) => `<div class="saved-plan-row"><div><strong>${escape(entry.name)}</strong><small>${entry.plan.date} · ${entry.plan.duration} min<br>${entry.plan.places.map(p => escape(city(p.zone))).join(' · ')}</small></div><div class="saved-plan-actions"><button class="button subtle" data-load-plan="${i}" aria-label="Load ${escape(entry.name)}">Load</button><button class="text-button" data-remove-plan="${i}" aria-label="Remove saved plan ${escape(entry.name)}">Remove</button></div></div>`).join('') : '<p class="empty">No saved plans yet.</p>';
+    document.getElementById('saved-list')!.innerHTML = entries.length ? entries.map((entry, i) => `<div class="saved-plan-row"><div><strong data-no-translate>${escape(entry.name)}</strong><small>${entry.plan.date} · ${entry.plan.duration} min<br>${entry.plan.places.map(p => escape(city(p.zone))).join(' · ')}</small></div><div class="saved-plan-actions"><button class="button subtle" data-load-plan="${i}" aria-label="Load ${escape(entry.name)}">Load</button><button class="text-button" data-remove-plan="${i}" aria-label="Remove saved plan ${escape(entry.name)}">Remove</button></div></div>`).join('') : '<p class="empty">No saved plans yet.</p>';
     document.querySelectorAll<HTMLButtonElement>('[data-load-plan]').forEach(button => button.onclick = () => {
       const entry = entries[Number(button.dataset.loadPlan)];
       plan = entry.plan; persist(); render(); document.getElementById('saved-plans')!.focus(); notify(`Loaded ${entry.name} · ${plan.date}.`);
@@ -367,7 +397,8 @@ function showSavedPlans() {
       try { removeNamedPlan(localStorage, entry.name); showSavedPlans(); savedFeedback(`Removed ${entry.name}. The current planner is unchanged.`); document.getElementById('plan-name')!.focus(); }
       catch (error) { savedFeedback(error instanceof Error ? error.message : 'Could not remove this plan.'); }
     });
-  } catch { savedFeedback('Saved plans could not be read. Browser storage may be unavailable; existing data has not been changed.'); }
+    localizePage();
+  } catch { savedFeedback('Saved plans could not be read. Browser storage may be unavailable; existing data has not been changed.'); localizePage(); }
 }
 
 function showCities(query: string) {
@@ -380,6 +411,7 @@ function showCities(query: string) {
     document.querySelector<HTMLSelectElement>(`[data-city="${plan.places.length - 1}"][data-window="0"][data-hours="start"]`)!.focus();
     notify(`Added ${city(button.dataset.zone!)}. Set its available hours below.`);
   });
+  localizePage();
 }
 window.addEventListener('hashchange', () => {
   const shared = readPlanLink(location.hash);
