@@ -8,10 +8,18 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
+    "test": "vitest run src",
+    "test:browser": "playwright test",
     "benchmark": "node --experimental-strip-types scripts/benchmark.mjs",
     "check": "npm test && npm run build && npm run benchmark"
   },
-  "engines": { "node": ">=22.12.0" },
-  "devDependencies": { "typescript": "7.0.2", "vite": "8.3.0", "vitest": "5.0.0" }
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.0",
+    "vitest": "5.0.0"
+  }
 }
